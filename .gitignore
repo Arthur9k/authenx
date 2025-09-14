@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+env/
+venv/
+
+# Uploads & generated files
+backend/uploads/
+backend/static/qr/
+backend/sample_pdfs/
+*.pdf
+
+# Environment
+.env
+
+# IDE
+.vscode/
+.idea/

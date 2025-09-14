@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AuthenX</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .gradient-text {
+            background: linear-gradient(to right, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .dark .gradient-text {
+            background: linear-gradient(to right, #a78bfa, #f472b6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .modal-content {
+            transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+        }
+
+        .modal-content.entering {
+            transform: scale(1);
+            opacity: 1;
+        }
+
+        .trust-score-ring {
+            transition: stroke-dashoffset 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        .tab-button.active {
+            border-bottom-color: #8b5cf6;
+            color: #111827;
+        }
+
+        .dark .tab-button.active {
+            border-bottom-color: #a78bfa;
+            color: #f9fafb;
+        }
+
+        .verify-modal-container {
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #verify-modal-body {
+            overflow-y: auto;
+        }
+
+        * {
+            transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+            transition-duration: 300ms;
+        }
+    </style>
+</head>
+
+<body class="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+
+    <header
+        class="sticky top-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg border-b border-slate-200 dark:border-slate-800">
+        <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <a href="#" class="text-xl font-bold gradient-text">AuthenX</a>
+            <div class="hidden md:flex items-center space-x-6">
+                <a href="#how-it-works"
+                    class="text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white">How It
+                    Works</a>
+                <a href="#features"
+                    class="text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white">Features</a>
+            </div>
+            <div class="flex items-center space-x-4">
+                <button id="theme-toggle"
+                    class="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">
+                    <svg id="theme-icon-light" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z">
+                        </path>
+                    </svg>
+                    <svg id="theme-icon-dark" class="h-6 w-6 hidden" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z">
+                        </path>
+                    </svg>
+                </button>
+                <div id="auth-buttons-container" class="hidden md:flex items-center space-x-4"></div>
+                <button id="verify-main-btn-mobile"
+                    class="md:hidden text-sm font-medium bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg">Verify</button>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container mx-auto px-6 py-16 md:py-24 text-center">
+        <section id="hero" class="mb-24">
+            <h1 class="text-4xl md:text-6xl font-extrabold text-slate-900 dark:text-white leading-tight">The Future of
+                <span class="gradient-text">Digital Trust</span> is Here.
+            </h1>
+            <p class="mt-6 max-w-2xl mx-auto text-lg text-slate-600 dark:text-slate-400">Our intelligent platform
+                instantly verifies academic certificates, detects forgeries with advanced analysis, and secures
+                credentials against fraud.</p>
+            <div class="mt-10"><button id="verify-main-btn"
+                    class="bg-purple-600 hover:bg-purple-700 text-white font-bold text-lg px-8 py-4 rounded-lg shadow-lg transition transform hover:scale-105">Verify
+                    a Certificate Now</button></div>
+        </section>
+        <section id="how-it-works" class="mb-24 text-left">
+            <h2 class="text-3xl md:text-4xl font-bold text-center mb-12 text-slate-900 dark:text-white">How We Assign a
+                <span class="gradient-text">Trust Score</span>
+            </h2>
+            <div class="grid md:grid-cols-3 gap-8">
+                <div class="bg-slate-100 dark:bg-slate-800 p-6 rounded-lg">
+                    <h3 class="font-bold text-lg mb-2">1. Registry Verification</h3>
+                    <p class="text-sm text-slate-600 dark:text-slate-400">The system first checks the certificate's
+                        unique ID against our secure database and integrated national registries. A direct match
+                        provides the highest level of trust.</p>
+                </div>
+                <div class="bg-slate-100 dark:bg-slate-800 p-6 rounded-lg">
+                    <h3 class="font-bold text-lg mb-2">2. Forgery Detection Analysis</h3>
+                    <p class="text-sm text-slate-600 dark:text-slate-400">If not found in a registry, our engine
+                        analyzes the document for signs of tampering, including logo inconsistencies, font mismatches,
+                        and evidence of digital editing.</p>
+                </div>
+                <div class="bg-slate-100 dark:bg-slate-800 p-6 rounded-lg">
+                    <h3 class="font-bold text-lg mb-2">3. Cryptographic Proof</h3>
+                    <p class="text-sm text-slate-600 dark:text-slate-400">We verify the document's cryptographic hash (a
+                        unique digital fingerprint). Any alteration to the original file will be instantly detected.</p>
+                </div>
+            </div>
+        </section>
+        <section id="features" class="text-left">
+            <h2 class="text-3xl md:text-4xl font-bold text-center mb-12 text-slate-900 dark:text-white">A Platform Built
+                for <span class="gradient-text">Integrity</span></h2>
+            <div class="grid md:grid-cols-2 gap-8">
+                <div class="bg-slate-100 dark:bg-slate-800 p-6 rounded-lg">
+                    <h3 class="font-bold text-lg mb-2">Instant Verification</h3>
+                    <p class="text-sm text-slate-600 dark:text-slate-400">Eliminate manual checks and weeks of waiting.
+                        Get reliable verification results in seconds.</p>
+                </div>
+                <div class="bg-slate-100 dark:bg-slate-800 p-6 rounded-lg">
+                    <h3 class="font-bold text-lg mb-2">Advanced Security</h3>
+                    <p class="text-sm text-slate-600 dark:text-slate-400">With role-based access, secure authentication,
+                        and detailed audit logs, your data is always protected.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="container mx-auto px-6 py-8 text-center text-slate-500 dark:text-slate-400 text-sm">
+        <p>A Smart India Hackathon 2025 Submission by Team AuthenX</p>
+    </footer>
+
+    <div id="auth-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 modal-overlay p-4">
+        <div
+            class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md modal-content transform scale-95 opacity-0">
+        </div>
+    </div>
+    <div id="verify-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 modal-overlay p-4">
+        <div
+            class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg modal-content transform scale-95 opacity-0 verify-modal-container">
+            <div
+                class="flex justify-between items-center p-6 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
+                <h2 class="text-xl font-bold">Certificate Verification</h2><button id="close-verify-modal-btn"
+                    class="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition">&times;</button>
+            </div>
+            <div id="verify-modal-body" class="p-8 flex-grow"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- CONFIGURATION ---
+            const API_BASE_URL = 'http://127.0.0.1:5000';
+
+            // --- ELEMENT SELECTORS ---
+            const themeToggle = document.getElementById('theme-toggle');
+            const htmlEl = document.documentElement;
+            const authModal = document.getElementById('auth-modal');
+            const verifyModal = document.getElementById('verify-modal');
+            const authButtonsContainer = document.getElementById('auth-buttons-container');
+            const verifyMainBtn = document.getElementById('verify-main-btn');
+            const verifyMainBtnMobile = document.getElementById('verify-main-btn-mobile');
+            const closeVerifyModalBtn = document.getElementById('close-verify-modal-btn');
+
+            // --- THEME & MODAL LOGIC ---
+            const applyTheme = (theme) => {
+                htmlEl.classList.toggle('dark', theme === 'dark');
+                document.getElementById('theme-icon-light').classList.toggle('hidden', theme === 'dark');
+                document.getElementById('theme-icon-dark').classList.toggle('hidden', theme !== 'dark');
+            };
+            themeToggle.addEventListener('click', () => {
+                const newTheme = htmlEl.classList.contains('dark') ? 'light' : 'dark';
+                localStorage.setItem('theme', newTheme);
+                applyTheme(newTheme);
+            });
+            const openModal = (modal) => {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                setTimeout(() => modal.querySelector('.modal-content').classList.add('entering'), 10);
+            };
+            const closeModal = (modal) => {
+                modal.querySelector('.modal-content').classList.remove('entering');
+                setTimeout(() => { modal.classList.add('hidden'); modal.classList.remove('flex'); }, 300);
+            };
+            [authModal, verifyModal].forEach(modal => modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(modal); }));
+            closeVerifyModalBtn.addEventListener('click', () => closeModal(verifyModal));
+
+            // --- UI HELPER FUNCTIONS ---
+            const helpers = {
+                showLoading: (form, buttonText = "Processing...") => {
+                    const button = form.querySelector('button[type="submit"]');
+                    if (!button) return;
+                    button.disabled = true;
+                    button.dataset.originalText = button.innerHTML;
+                    button.innerHTML = `<div class="flex items-center justify-center"><svg class="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span>${buttonText}</span></div>`;
+                    const errorEl = form.querySelector('.form-error-message');
+                    if (errorEl) errorEl.textContent = '';
+                },
+                hideLoading: (form) => {
+                    const button = form.querySelector('button[type="submit"]');
+                    if (!button || !button.dataset.originalText) return;
+                    button.disabled = false;
+                    button.innerHTML = button.dataset.originalText;
+                },
+                showError: (form, message) => {
+                    const errorEl = form.querySelector('.form-error-message');
+                    if (errorEl) errorEl.textContent = message;
+                },
+                renderTrustScore: (score) => {
+                    if (score === null || score === undefined) return '';
+                    const r = 54, c = 2 * Math.PI * r, offset = c - (score / 100 * c);
+                    let color = 'text-green-500';
+                    if (score < 85) color = 'text-yellow-500';
+                    if (score < 50) color = 'text-red-500';
+                    return `<div class="relative w-32 h-32 mx-auto"><svg class="w-full h-full" viewBox="0 0 120 120"><circle class="text-slate-200 dark:text-slate-700" stroke-width="8" stroke="currentColor" fill="transparent" r="${r}" cx="60" cy="60"/><circle class="trust-score-ring ${color}" stroke-width="8" stroke-dasharray="${c}" stroke-dashoffset="${offset}" stroke-linecap="round" stroke="currentColor" fill="transparent" r="${r}" cx="60" cy="60" transform="rotate(-90 60 60)"/></svg><span class="absolute inset-0 flex items-center justify-center text-3xl font-bold ${color}">${score}</span></div>`;
+                },
+                displayResults: (container, data, resultType = 'file') => {
+                    const results = Array.isArray(data.results) ? data.results : [data];
+                    let resultsHTML = '';
+
+                    if (resultType === 'csv') {
+                        const statusColors = { 'Verified': 'bg-green-100 text-green-800', 'Not Found': 'bg-yellow-100 text-yellow-800', 'Mismatch': 'bg-red-100 text-red-800', 'Revoked': 'bg-orange-100 text-orange-800', 'Skipped': 'bg-slate-100 text-slate-800' };
+                        let tableRows = results.map(result => `
+                    <tr>
+                        <td class="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">${result.csv_row.cert_id || ''}</td>
+                        <td class="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">${result.csv_row.name || ''}</td>
+                        <td class="px-4 py-3 text-sm"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[result.status] || ''}">${result.status}</span></td>
+                        <td class="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">${result.reason}</td>
+                    </tr>
+                `).join('');
+                        resultsHTML = `<div class="bg-white dark:bg-slate-800 rounded-lg shadow-md overflow-hidden"><table class="min-w-full"><thead class="bg-slate-50 dark:bg-slate-700"><tr><th class="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase">Cert ID</th><th class="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase">Name</th><th class="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase">Status</th><th class="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase">Reason</th></tr></thead><tbody class="divide-y divide-slate-200 dark:divide-slate-600">${tableRows}</tbody></table></div>`;
+                    } else {
+                        results.forEach(result => {
+                            let color = 'text-slate-600 dark:text-slate-300', icon = 'ℹ️', text = (result.status || 'INFO').replace(/_/g, ' ');
+                            if (text.includes('Verified')) { color = 'text-green-500'; icon = '✅'; }
+                            else if (text.includes('Revoked')) { color = 'text-orange-500'; icon = '⚠️'; }
+                            else if (text.includes('Forged')) { color = 'text-red-500'; icon = '❌'; }
+                            else if (text.includes('Manual Check')) { color = 'text-yellow-500'; icon = '🤔'; }
+                            else if (text.includes('Error')) { color = 'text-red-500'; icon = '🔥'; }
+                            const trustScoreHTML = helpers.renderTrustScore(result.trust_score);
+                            const filenameHTML = result.original_filename ? `<p class="text-xs text-center font-mono text-slate-400 truncate" title="${result.original_filename}">${result.original_filename}</p>` : '';
+
+                            // --- FIX 1: Create a separate HTML block for the file hash ---
+                            const fileHashHTML = result.file_hash ? `
+                    <div class="bg-slate-100 dark:bg-slate-900/50 rounded-lg p-3 my-4 text-left relative group">
+                        <h4 class="font-semibold text-sm mb-2">Document Fingerprint (SHA-256)</h4>
+                        <p class="text-xs font-mono text-slate-600 dark:text-slate-400 break-all pr-10" title="${result.file_hash}">${result.file_hash}</p>
+                        <button onclick="navigator.clipboard.writeText('${result.file_hash}').then(() => alert('Hash copied!'))" class="absolute top-3 right-3 bg-slate-200 dark:bg-slate-700 p-1 rounded hover:bg-slate-300 dark:hover:bg-slate-600 opacity-50 group-hover:opacity-100 transition-opacity" title="Copy Hash">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                        </button>
+                    </div>` : '';
+
+                            const scoreAnalysisHTML = result.trust_score <= 100 && result.trust_score >= 0 ? `<div class="bg-slate-100 dark:bg-slate-900/50 rounded-lg p-3 my-4 text-left"><h4 class="font-semibold text-sm mb-2">Score Analysis:</h4><p class="text-xs text-slate-600 dark:text-slate-400 whitespace-pre-wrap">${result.details}</p></div>` : '';
+                            const hasExtractedData = result.certificate_data && Object.values(result.certificate_data).some(value => value !== null && value !== '');
+                            const extractedDataHTML = hasExtractedData ? `<div class="bg-slate-100 dark:bg-slate-900/50 rounded-lg p-3 my-4 text-left"><h4 class="font-semibold text-sm mb-2">Extracted Data:</h4><ul class="text-xs text-slate-600 dark:text-slate-400 list-disc list-inside">${Object.entries(result.certificate_data).map(([key, value]) => value ? `<li class="${key === 'file_hash' ? 'break-all' : ''}"><strong>${key.replace(/_/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}:</strong> ${value}</li>` : '').join('')}</ul></div>` : '';
+
+                            // --- FIX 2: Add the new fileHashHTML to the final output ---
+                            resultsHTML += `
+                    <div class="border border-slate-200 dark:border-slate-700 rounded-lg p-4 mb-4">
+                        <div class="text-center">
+                            <p class="text-xl font-bold ${color}">${icon} ${text}</p>
+                        </div>
+                        <div class="mt-4">${trustScoreHTML}</div>
+                        ${filenameHTML ? `<div class="mt-2">${filenameHTML}</div>` : ''}
+                        ${scoreAnalysisHTML}
+                        ${fileHashHTML}
+                        ${extractedDataHTML}
+                    </div>`;
+                        });
+                    }
+                    container.innerHTML = `<h2 class="text-2xl font-bold text-center mb-4">Verification Results</h2><div class="max-h-[60vh] overflow-y-auto pr-2">${resultsHTML}</div>`;
+                }
+            };
+
+            // --- The rest of the AUTHENTICATION LOGIC and INITIALIZATION script remains unchanged ---
+            const authModalContent = authModal.querySelector('.modal-content');
+            const setupAuthModal = () => {
+                authModalContent.innerHTML = `<div class="flex border-b border-slate-200 dark:border-slate-700"><button data-tab="login" class="auth-tab-button tab-button flex-1 font-medium py-4 px-6">Login</button><button data-tab="signup" class="auth-tab-button tab-button flex-1 font-medium py-4 px-6">Signup</button></div><div class="p-8"><form id="login-form" class="space-y-6"><h3 class="text-xl font-bold text-center">Welcome Back</h3><div><label for="username" class="block text-sm font-medium">Username</label><input type="text" id="username" class="mt-1 block w-full bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md p-2" required></div><div><label for="password" class="block text-sm font-medium">Password</label><input type="password" id="password" class="mt-1 block w-full bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md p-2" required></div><button type="submit" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold p-3 rounded-lg h-12 flex items-center justify-center">Login</button><p class="form-error-message text-red-500 text-sm text-center h-4"></p></form><form id="signup-form" class="space-y-6 hidden"><h3 class="text-xl font-bold text-center">Create an Account</h3><div><label for="signup-username" class="block text-sm font-medium">Username</label><input type="text" id="signup-username" class="mt-1 block w-full bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md p-2" required></div><div><label for="signup-email" class="block text-sm font-medium">Email</label><input type="email" id="signup-email" class="mt-1 block w-full bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md p-2" required></div><div><label for="signup-password" class="block text-sm font-medium">Password</label><input type="password" id="signup-password" class="mt-1 block w-full bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md p-2" required></div><div><label for="signup-pin" class="block text-sm font-medium">Security PIN</label><input type="password" id="signup-pin" class="mt-1 block w-full bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md p-2" required></div><button type="submit" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold p-3 rounded-lg h-12 flex items-center justify-center">Create Account</button><p class="form-error-message text-red-500 text-sm text-center h-4"></p></form></div>`;
+                const loginForm = document.getElementById('login-form'), signupForm = document.getElementById('signup-form');
+                const loginTabBtn = authModalContent.querySelector('[data-tab="login"]');
+                authModalContent.querySelectorAll('.auth-tab-button').forEach(btn => btn.addEventListener('click', () => {
+                    const tab = btn.dataset.tab;
+                    authModalContent.querySelectorAll('form').forEach(f => f.classList.add('hidden'));
+                    document.getElementById(`${tab}-form`).classList.remove('hidden');
+                    authModalContent.querySelectorAll('.auth-tab-button').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                }));
+                loginForm.addEventListener('submit', async (e) => {
+                    e.preventDefault(); helpers.showLoading(loginForm, "Logging in...");
+                    try {
+                        const res = await fetch(`${API_BASE_URL}/auth/login`, {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ username: loginForm.username.value, password: loginForm.password.value })
+                        });
+                        const data = await res.json();
+                        if (!res.ok) throw new Error(data.msg || 'Login failed');
+                        localStorage.setItem('accessToken', data.access_token);
+                        updateNavOnLogin(); closeModal(authModal);
+                    } catch (err) { helpers.showError(loginForm, err.message); } finally { helpers.hideLoading(loginForm); }
+                });
+                signupForm.addEventListener('submit', async (e) => {
+                    e.preventDefault(); helpers.showLoading(signupForm, "Creating Account...");
+                    try {
+                        const res = await fetch(`${API_BASE_URL}/auth/signup`, {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ username: signupForm['signup-username'].value, email: signupForm['signup-email'].value, password: signupForm['signup-password'].value, pin: signupForm['signup-pin'].value })
+                        });
+                        const data = await res.json();
+                        if (!res.ok) throw new Error(data.msg || 'Signup failed');
+                        loginTabBtn.click();
+                        helpers.showError(loginForm, "Account created! Please log in.");
+                    } catch (err) { helpers.showError(signupForm, err.message); } finally { helpers.hideLoading(signupForm); }
+                });
+                loginTabBtn.classList.add('active');
+            };
+            const updateNavOnLogin = async () => {
+                const token = localStorage.getItem('accessToken'); if (!token) return;
+                try {
+                    const res = await fetch(`${API_BASE_URL}/auth/profile`, { headers: { 'Authorization': `Bearer ${token}` } });
+                    if (!res.ok) { localStorage.removeItem('accessToken'); updateNavOnLogout(); return; }
+                    const user = await res.json();
+                    const dashboardBtnHTML = `<a href="admin.html" class="text-sm font-medium bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition">Dashboard</a>`;
+                    authButtonsContainer.innerHTML = `<span class="text-sm font-medium text-slate-600 dark:text-slate-300">Welcome, ${user.username}</span> ${dashboardBtnHTML} <button id="logout-nav-btn" class="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition">Logout</button>`;
+                    document.getElementById('logout-nav-btn').addEventListener('click', () => { localStorage.removeItem('accessToken'); updateNavOnLogout(); });
+                } catch (error) { localStorage.removeItem('accessToken'); updateNavOnLogout(); }
+            };
+            const updateNavOnLogout = () => {
+                authButtonsContainer.innerHTML = `<button id="login-nav-btn" class="text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white">Login</button><button id="signup-nav-btn" class="text-sm font-medium bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg">Signup</button>`;
+                document.getElementById('login-nav-btn').addEventListener('click', () => openAuthModal('login'));
+                document.getElementById('signup-nav-btn').addEventListener('click', () => openAuthModal('signup'));
+            };
+            const openAuthModal = (defaultTab = 'login') => { setupAuthModal(); authModal.querySelector(`[data-tab="${defaultTab}"]`).click(); openModal(authModal); };
+            const verifyModalBody = document.getElementById('verify-modal-body');
+            const setupVerifyModal = () => {
+                const isLoggedIn = !!localStorage.getItem('accessToken');
+                let modalHTML;
+                if (isLoggedIn) {
+                    modalHTML = `
+                <div class="flex border-b border-slate-200 dark:border-slate-700 mb-6">
+                    <button data-tab="files" class="tab-button flex-1 font-medium py-3 px-6 transition-all active">Verify Document Files</button>
+                    <button data-tab="csv" class="tab-button flex-1 font-medium py-3 px-6 transition-all">Check CSV Data</button>
+                </div>
+                <div id="files-view">
+                    <form id="files-form" class="space-y-6">
+                        <p class="text-sm text-center text-slate-500 dark:text-slate-400">Upload one or more certificate files (PDF, JPG, PNG) for forgery analysis.</p>
+                        <div><input id="files-upload-input" type="file" class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700" accept=".pdf,.png,.jpg,.jpeg" required multiple></div>
+                        <button type="submit" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold p-3 rounded-lg h-12 flex items-center justify-center">Verify Files</button>
+                        <p class="form-error-message text-red-500 text-sm text-center h-4"></p>
+                    </form>
+                </div>
+                <div id="csv-view" class="hidden">
+                    <form id="csv-form" class="space-y-6">
+                        <p class="text-sm text-center text-slate-500 dark:text-slate-400">Upload a CSV with headers 'cert_id', 'name', 'roll' to check records against the database.</p>
+                        <div><input id="csv-upload-input" type="file" class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700" accept=".csv" required></div>
+                        <button type="submit" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold p-3 rounded-lg h-12 flex items-center justify-center">Check CSV</button>
+                        <p class="form-error-message text-red-500 text-sm text-center h-4"></p>
+                    </form>
+                </div>
+            `;
+                } else {
+                    modalHTML = `
+                <form id="files-form" class="space-y-6">
+                    <p class="text-sm text-center text-slate-500 dark:text-slate-400">As a guest, you can perform a forgery analysis on a single document.</p>
+                    <div><input id="files-upload-input" type="file" class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700" accept=".pdf,.png,.jpg,.jpeg" required></div>
+                    <button type="submit" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold p-3 rounded-lg h-12 flex items-center justify-center">Verify File</button>
+                    <p class="form-error-message text-red-500 text-sm text-center h-4"></p>
+                </form>
+            `;
+                }
+                verifyModalBody.innerHTML = `${modalHTML}<div id="verification-result-area" class="mt-6"></div>`;
+
+                const resultArea = document.getElementById('verification-result-area');
+                const filesForm = document.getElementById('files-form');
+                const csvForm = document.getElementById('csv-form');
+                const token = localStorage.getItem('accessToken');
+
+                if (isLoggedIn) {
+                    const tabs = verifyModalBody.querySelectorAll('.tab-button');
+                    const filesView = document.getElementById('files-view');
+                    const csvView = document.getElementById('csv-view');
+                    tabs.forEach(tab => {
+                        tab.addEventListener('click', () => {
+                            tabs.forEach(t => t.classList.remove('active'));
+                            tab.classList.add('active');
+                            filesView.classList.toggle('hidden', tab.dataset.tab !== 'files');
+                            csvView.classList.toggle('hidden', tab.dataset.tab !== 'csv');
+                            resultArea.innerHTML = '';
+                        });
+                    });
+                }
+
+                if (filesForm) {
+                    filesForm.addEventListener('submit', async (e) => {
+                        e.preventDefault();
+                        const files = document.getElementById('files-upload-input').files;
+                        if (files.length === 0) return;
+                        helpers.showLoading(filesForm, 'Verifying...');
+                        const formData = new FormData();
+                        const isBulk = isLoggedIn && files.length > 1;
+                        const url = isBulk ? `${API_BASE_URL}/verify/bulk-upload` : `${API_BASE_URL}/verify/upload`;
+                        if (isBulk) {
+                            for (let i = 0; i < files.length; i++) formData.append('files', files[i]);
+                        } else {
+                            formData.append('file', files[0]);
+                        }
+                        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+                        try {
+                            const userLocale = navigator.language || 'en-IN'; // Default to Indian locale
+                            const localTimestamp = new Date().toLocaleString(userLocale, {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit'
+                            });
+                            formData.append('localTimestamp', localTimestamp);
+
+                            // 2. Check if a user is logged in and add their token if they are
+                            const res = await fetch(url, { method: 'POST', headers, body: formData });
+                            const data = await res.json();
+                            if (!res.ok) throw new Error(data.error || 'Verification failed');
+                            if (isLoggedIn) {
+                                filesForm.parentElement.style.display = 'none';
+                                verifyModalBody.querySelector('.tab-button').parentElement.style.display = 'none';
+                            } else {
+                                filesForm.style.display = 'none';
+                            }
+                            helpers.displayResults(resultArea, data, 'file');
+                        } catch (err) { helpers.showError(filesForm, err.message); } finally { helpers.hideLoading(filesForm); }
+                    });
+                }
+
+                if (csvForm) {
+                    csvForm.addEventListener('submit', async (e) => {
+                        e.preventDefault();
+                        const file = document.getElementById('csv-upload-input').files[0];
+                        if (!file) return;
+                        helpers.showLoading(csvForm, 'Processing CSV...');
+                        const formData = new FormData();
+                        formData.append('file', file);
+                        const headers = { 'Authorization': `Bearer ${token}` };
+                        try {
+                            const res = await fetch(`${API_BASE_URL}/verify/csv-check`, { method: 'POST', headers, body: formData });
+                            const data = await res.json();
+                            if (!res.ok) throw new Error(data.error || 'CSV processing failed');
+                            csvForm.parentElement.style.display = 'none';
+                            verifyModalBody.querySelector('.tab-button').parentElement.style.display = 'none';
+                            helpers.displayResults(resultArea, data, 'csv');
+                        } catch (err) { helpers.showError(csvForm, err.message); } finally { helpers.hideLoading(csvForm); }
+                    });
+                }
+            };
+
+            // --- INITIALIZATION ---
+            [verifyMainBtn, verifyMainBtnMobile].forEach(btn => btn.addEventListener('click', () => {
+                setupVerifyModal();
+                openModal(verifyModal);
+            }));
+            const initialTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            applyTheme(initialTheme);
+            if (localStorage.getItem('accessToken')) {
+                updateNavOnLogin();
+            } else {
+                updateNavOnLogout();
+            }
+        });
+    </script>
+</body>
+
+</html>

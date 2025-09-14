@@ -1,0 +1,17 @@
+Flask
+SQLAlchemy
+Flask-Migrate
+pytesseract
+Pillow
+PyPDF2
+python-dotenv
+qrcode
+reportlab
+Flask-JWT-Extended
+opencv-python
+pandas
+opencv-python-headless
+qrcode[pil]>=7.0
+pyzbar>=0.1.9
+Faker>=19.0.0
+Flask-JWT-Extended>=4.0.0

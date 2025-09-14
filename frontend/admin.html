@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AuthenX - Admin Dashboard</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        * {
+            transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, transform;
+            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+            transition-duration: 300ms;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #a8a29e;
+            border-radius: 10px;
+        }
+
+        .dark ::-webkit-scrollbar-thumb {
+            background: #57534e;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .sidebar-link.active {
+            background-color: #f3f4f6;
+            color: #4f46e5;
+            font-weight: 600;
+        }
+
+        .dark .sidebar-link.active {
+            background-color: #1e293b;
+        }
+
+        .gradient-text {
+            background: linear-gradient(to right, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .dark .gradient-text {
+            background: linear-gradient(to right, #a78bfa, #f472b6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+
+    <div class="flex h-screen overflow-hidden">
+        <aside id="sidebar"
+            class="w-64 -translate-x-full md:translate-x-0 fixed md:relative z-40 flex h-full flex-col border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 transition-transform duration-300 ease-in-out">
+            <div class="flex items-center gap-2 px-6 py-5 border-b border-slate-200 dark:border-slate-800">
+                <a href="index.html" class="text-2xl font-bold gradient-text">AuthenX</a>
+            </div>
+            <nav class="flex-1 overflow-y-auto p-4 space-y-2">
+                <a href="#" data-view="dashboard"
+                    class="sidebar-link group flex items-center rounded-md px-4 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                    <i data-lucide="layout-dashboard" class="mr-3 h-5 w-5"></i> Dashboard
+                </a>
+                <a href="#" data-view="certificate-management"
+                    class="sidebar-link group flex items-center rounded-md px-4 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                    <i data-lucide="file-check-2" class="mr-3 h-5 w-5"></i> Certificate Management
+                </a>
+                <a href="#" data-view="create-user"
+                    class="sidebar-link group flex items-center rounded-md px-4 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                    <i data-lucide="user-plus" class="mr-3 h-5 w-5"></i> Create User
+                </a>
+                <a href="#" data-view="upload"
+                    class="sidebar-link group flex items-center rounded-md px-4 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                    <i data-lucide="upload-cloud" class="mr-3 h-5 w-5"></i> Upload
+                </a>
+                <a href="#" data-view="verification-logs"
+                    class="sidebar-link group flex items-center rounded-md px-4 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                    <i data-lucide="history" class="mr-3 h-5 w-5"></i> Verification Logs
+                </a>
+            </nav>
+            <div class="mt-auto border-t border-slate-200 dark:border-slate-800 p-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <img id="user-avatar" class="h-9 w-9 rounded-full object-cover"
+                            src="https://ui-avatars.com/api/?name=Admin&background=818cf8&color=fff" alt="User Avatar">
+                        <div>
+                            <p id="username-display" class="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                                Loading...</p>
+                            <p id="user-role-display" class="text-xs text-slate-500 dark:text-slate-400">Administrator
+                            </p>
+                        </div>
+                    </div>
+                    <button id="logout-btn" title="Logout"
+                        class="p-2 rounded-md text-slate-500 hover:bg-slate-100 hover:text-red-500 dark:hover:bg-slate-800">
+                        <i data-lucide="log-out" class="h-5 w-5"></i>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <header
+                class="md:hidden flex items-center justify-between bg-white/80 dark:bg-slate-950/80 backdrop-blur-lg border-b border-slate-200 dark:border-slate-800 p-4 sticky top-0 z-30">
+                <button id="hamburger-btn" class="p-2 rounded-md">
+                    <i data-lucide="menu" class="h-6 w-6"></i>
+                </button>
+                <h1 id="mobile-header-title" class="text-lg font-semibold">Dashboard</h1>
+                <button id="theme-toggle-mobile" class="p-2 rounded-full">
+                    <i data-lucide="sun" class="h-6 w-6 theme-icon-light"></i>
+                    <i data-lucide="moon" class="h-6 w-6 theme-icon-dark hidden"></i>
+                </button>
+            </header>
+
+            <main class="flex-1 overflow-x-hidden overflow-y-auto bg-slate-100 dark:bg-slate-900 p-6">
+                <div class="container mx-auto max-w-7xl">
+                    <div class="flex items-center justify-between mb-6">
+                        <h1 id="desktop-header-title" class="text-3xl font-bold text-slate-900 dark:text-white">
+                            Dashboard</h1>
+                        <button id="theme-toggle-desktop"
+                            class="hidden md:block p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800">
+                            <i data-lucide="sun" class="h-6 w-6 theme-icon-light"></i>
+                            <i data-lucide="moon" class="h-6 w-6 theme-icon-dark hidden"></i>
+                        </button>
+                    </div>
+
+                    <section id="dashboard-view" class="view-section space-y-6">
+                        <div id="stats-cards-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <div class="animate-pulse bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm">
+                                <div class="h-6 bg-slate-200 dark:bg-slate-700 rounded w-3/4"></div>
+                                <div class="h-10 bg-slate-200 dark:bg-slate-700 rounded mt-2 w-1/2"></div>
+                            </div>
+                            <div class="animate-pulse bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm">
+                                <div class="h-6 bg-slate-200 dark:bg-slate-700 rounded w-3/4"></div>
+                                <div class="h-10 bg-slate-200 dark:bg-slate-700 rounded mt-2 w-1/2"></div>
+                            </div>
+                            <div class="animate-pulse bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm">
+                                <div class="h-6 bg-slate-200 dark:bg-slate-700 rounded w-3/4"></div>
+                                <div class="h-10 bg-slate-200 dark:bg-slate-700 rounded mt-2 w-1/2"></div>
+                            </div>
+                            <div class="animate-pulse bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm">
+                                <div class="h-6 bg-slate-200 dark:bg-slate-700 rounded w-3/4"></div>
+                                <div class="h-10 bg-slate-200 dark:bg-slate-700 rounded mt-2 w-1/2"></div>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <div class="lg:col-span-2 bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm">
+                                <h3 class="text-lg font-semibold mb-4">Verification Trends (Last 7 Days)</h3>
+                                <div class="h-80"><canvas id="verificationChart"></canvas></div>
+                            </div>
+                            <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm">
+                                <h3 class="text-lg font-semibold mb-4">Recent Alerts</h3>
+                                <div id="alerts-table-container" class="space-y-4">
+                                    <div class="animate-pulse flex items-center space-x-4">
+                                        <div class="h-10 w-10 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
+                                        <div class="flex-1 space-y-2">
+                                            <div class="h-4 bg-slate-200 dark:bg-slate-700 rounded w-3/4"></div>
+                                            <div class="h-3 bg-slate-200 dark:bg-slate-700 rounded w-1/2"></div>
+                                        </div>
+                                    </div>
+                                    <div class="animate-pulse flex items-center space-x-4">
+                                        <div class="h-10 w-10 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
+                                        <div class="flex-1 space-y-2">
+                                            <div class="h-4 bg-slate-200 dark:bg-slate-700 rounded w-3/4"></div>
+                                            <div class="h-3 bg-slate-200 dark:bg-slate-700 rounded w-1/2"></div>
+                                        </div>
+                                    </div>
+                                    <div class="animate-pulse flex items-center space-x-4">
+                                        <div class="h-10 w-10 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
+                                        <div class="flex-1 space-y-2">
+                                            <div class="h-4 bg-slate-200 dark:bg-slate-700 rounded w-3/4"></div>
+                                            <div class="h-3 bg-slate-200 dark:bg-slate-700 rounded w-1/2"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="certificate-management-view" class="view-section hidden">
+                        <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm">
+                            <div class="flex flex-wrap gap-4 justify-between items-center mb-4">
+                                <h3 class="text-lg font-semibold">All Certificates</h3>
+                                <div class="relative">
+                                    <i data-lucide="search"
+                                        class="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400"></i>
+                                    <input id="cert-search-input" type="text" placeholder="Search by name or ID..."
+                                        class="w-64 pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                </div>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+                                    <thead class="bg-slate-50 dark:bg-slate-700">
+                                        <tr>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                                                Cert ID</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                                                Name</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                                                Institution</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                                                Status</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                                                Issued Date</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="certificates-table-body"
+                                        class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+                                    </tbody>
+                                </table>
+                                <div id="certificates-loader" class="text-center py-8">Loading certificates...</div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="create-user-view" class="view-section hidden">
+                        <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm max-w-2xl mx-auto">
+                            <h3 class="text-lg font-semibold mb-4">Create New User</h3>
+                            <form id="create-user-form" class="space-y-4">
+                                <div>
+                                    <label for="new-username" class="block text-sm font-medium mb-1">Username</label>
+                                    <input type="text" id="new-username"
+                                        class="w-full bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md p-2"
+                                        required>
+                                </div>
+                                <div>
+                                    <label for="new-email" class="block text-sm font-medium mb-1">Email</label>
+                                    <input type="email" id="new-email"
+                                        class="w-full bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md p-2"
+                                        required>
+                                </div>
+                                <div>
+                                    <label for="new-password" class="block text-sm font-medium mb-1">Password</label>
+                                    <input type="password" id="new-password"
+                                        class="w-full bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md p-2"
+                                        required>
+                                </div>
+                                <div>
+                                    <label for="new-user-role" class="block text-sm font-medium mb-1">Role</label>
+                                    <select id="new-user-role"
+                                        class="w-full bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md p-2">
+                                        <option value="Institution">Institution</option>
+                                        <option value="Admin">Admin</option>
+                                    </select>
+                                </div>
+                                <button type="submit"
+                                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-3 rounded-lg h-12 flex items-center justify-center">Create
+                                    User</button>
+                                <p id="create-user-error"
+                                    class="form-error-message text-red-500 text-sm text-center h-4"></p>
+                            </form>
+                        </div>
+                    </section>
+
+
+                    <section id="upload-view" class="view-section hidden space-y-6">
+                        <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm">
+                            <!-- Tab Buttons -->
+                            <div class="border-b border-gray-200 dark:border-gray-700 mb-6">
+                                <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+                                    <button data-tab="single-file"
+                                        class="upload-tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-indigo-500 text-indigo-600">
+                                        Add Single Certificate (PDF/Image)
+                                    </button>
+                                    <button data-tab="bulk-csv"
+                                        class="upload-tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600">
+                                        Bulk Add from CSV
+                                    </button>
+                                </nav>
+                            </div>
+
+                            <!-- Tab Content: Single File Upload -->
+                            <div id="single-file-content" class="upload-tab-content">
+                                <form id="add-certificate-form">
+                                    <div class="max-w-xl mx-auto">
+                                        <label for="add-cert-file-upload"
+                                            class="flex flex-col items-center justify-center w-full h-64 border-2 border-slate-300 dark:border-slate-600 border-dashed rounded-lg cursor-pointer bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600">
+                                            <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                                <i data-lucide="file-plus-2" class="w-10 h-10 mb-3 text-slate-400"></i>
+                                                <p class="mb-2 text-sm text-slate-500 dark:text-slate-400"><span
+                                                        class="font-semibold">Click to upload</span> or drag and drop
+                                                </p>
+                                                <p class="text-xs text-slate-500 dark:text-slate-400">PDF, PNG, JPG, or
+                                                    JPEG</p>
+                                                <p id="add-cert-filename"
+                                                    class="mt-2 text-sm font-semibold text-indigo-600"></p>
+                                            </div>
+                                            <input id="add-cert-file-upload" type="file" class="hidden"
+                                                accept=".pdf,.png,.jpg,.jpeg">
+                                        </label>
+                                        <button type="submit"
+                                            class="mt-6 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg">
+                                            Process and Add to Registry
+                                        </button>
+                                        <p id="add-certificate-error"
+                                            class="form-error-message text-red-500 text-sm text-center h-4 mt-2"></p>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <!-- Tab Content: Bulk CSV Upload -->
+                            <div id="bulk-csv-content" class="upload-tab-content hidden">
+                                <form id="bulk-csv-form">
+                                    <div class="max-w-xl mx-auto">
+                                        <label for="bulk-csv-file-upload"
+                                            class="flex flex-col items-center justify-center w-full h-64 border-2 border-slate-300 dark:border-slate-600 border-dashed rounded-lg cursor-pointer bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600">
+                                            <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                                <i data-lucide="sheet" class="w-10 h-10 mb-3 text-slate-400"></i>
+                                                <p class="mb-2 text-sm text-slate-500 dark:text-slate-400"><span
+                                                        class="font-semibold">Click to upload</span> or drag and drop
+                                                </p>
+                                                <p class="text-xs text-slate-500 dark:text-slate-400">CSV files only</p>
+                                                <p id="bulk-csv-filename"
+                                                    class="mt-2 text-sm font-semibold text-indigo-600"></p>
+                                            </div>
+                                            <input id="bulk-csv-file-upload" type="file" class="hidden" accept=".csv">
+                                        </label>
+                                        <div
+                                            class="mt-4 p-4 bg-indigo-50 dark:bg-indigo-900/20 border-l-4 border-indigo-500 text-indigo-700 dark:text-indigo-300 rounded-md">
+                                            <h4 class="font-bold">CSV Format Instructions</h4>
+                                            <p class="text-sm">Required headers: <strong>cert_id, name</strong>.
+                                                Optional: <strong>roll, course, file_hash</strong></p>
+                                        </div>
+                                        <button type="submit"
+                                            class="mt-6 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg">
+                                            Upload and Process CSV
+                                        </button>
+                                        <p id="bulk-csv-error"
+                                            class="form-error-message text-red-500 text-sm text-center h-4 mt-2"></p>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Container for Bulk CSV Results -->
+                        <div id="bulk-upload-results-container"
+                            class="hidden bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm">
+                            <h3 class="text-lg font-semibold mb-4">Upload Results</h3>
+                            <div class="overflow-x-auto max-h-96">
+                                <table class="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+                                    <thead class="bg-slate-50 dark:bg-slate-700 sticky top-0">
+                                        <tr>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                                                Row</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                                                Cert ID</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                                                Status</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                                                Message</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="bulk-upload-results-body"
+                                        class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="verification-logs-view" class="view-section hidden">
+                        <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-semibold">Verification Audit Trail</h3>
+                                <div class="relative">
+                                    <i data-lucide="search"
+                                        class="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400"></i>
+                                    <input id="logs-search-input" type="text" placeholder="Search logs..."
+                                        class="w-64 pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                </div>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+                                    <thead class="bg-slate-50 dark:bg-slate-700">
+                                        <tr>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                                                Timestamp (Local)</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                                                Verifier</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                                                Filename</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                                                Result</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                                                Source</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                                                Score</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="logs-table-body"
+                                        class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+                                    </tbody>
+                                </table>
+                                <div id="logs-loader" class="text-center py-8">Loading logs...</div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black/50 z-30 hidden md:hidden"></div>
+    <div id="toast-notification"
+        class="fixed top-5 right-5 z-[60] bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg transform translate-x-[120%]">
+        <p id="toast-message">Success!</p>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            const API_BASE_URL = 'http://127.0.0.1:5000';
+
+            let verificationChartInstance = null;
+            let allCertificates = [];
+            let allLogs = [];
+
+            const sidebar = document.getElementById('sidebar');
+            const sidebarOverlay = document.getElementById('sidebar-overlay');
+            const hamburgerBtn = document.getElementById('hamburger-btn');
+            const navLinks = document.querySelectorAll('.sidebar-link');
+            const viewSections = document.querySelectorAll('.view-section');
+            const mobileHeaderTitle = document.getElementById('mobile-header-title');
+            const desktopHeaderTitle = document.getElementById('desktop-header-title');
+
+            const showToast = (message, isError = false) => {
+                const toast = document.getElementById('toast-notification');
+                const toastMessage = document.getElementById('toast-message');
+                toastMessage.textContent = message;
+                toast.className = toast.className.replace(/bg-green-500|bg-red-500/g, '');
+                toast.classList.add(isError ? 'bg-red-500' : 'bg-green-500');
+                toast.classList.remove('translate-x-[120%]');
+                setTimeout(() => {
+                    toast.classList.add('translate-x-[120%]');
+                }, 3000);
+            };
+
+            const initTheme = () => {
+                const theme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                applyTheme(theme);
+            };
+
+            const applyTheme = (theme) => {
+                document.documentElement.classList.toggle('dark', theme === 'dark');
+                document.querySelectorAll('.theme-icon-light').forEach(el => el.classList.toggle('hidden', theme === 'dark'));
+                document.querySelectorAll('.theme-icon-dark').forEach(el => el.classList.toggle('hidden', theme !== 'dark'));
+                localStorage.setItem('theme', theme);
+                if (verificationChartInstance) {
+                    updateChartTheme();
+                }
+            };
+
+            const handleThemeToggle = () => {
+                applyTheme(document.documentElement.classList.contains('dark') ? 'light' : 'dark');
+            };
+
+            const checkAuth = async () => {
+                if (!localStorage.getItem('accessToken')) {
+                    window.location.href = 'index.html';
+                    return;
+                }
+                try {
+                    const response = await apiFetch('/auth/profile');
+                    document.getElementById('username-display').textContent = response.username;
+                    document.getElementById('user-avatar').src = `https://ui-avatars.com/api/?name=${encodeURIComponent(response.username)}&background=818cf8&color=fff`;
+                    document.getElementById('user-role-display').textContent = response.role || 'User';
+                } catch (error) {
+                    console.error('Authentication check failed:', error);
+                    localStorage.removeItem('accessToken');
+                    window.location.href = 'index.html';
+                }
+            };
+
+            const switchView = (viewName) => {
+                viewSections.forEach(section => section.classList.toggle('hidden', section.id !== `${viewName}-view`));
+                navLinks.forEach(link => link.classList.toggle('active', link.dataset.view === viewName));
+                const title = viewName.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                mobileHeaderTitle.textContent = title;
+                desktopHeaderTitle.textContent = title;
+
+                switch (viewName) {
+                    case 'dashboard': loadDashboardData(); break;
+                    case 'certificate-management': loadCertificatesData(); break;
+                    case 'create-user': /* No data to load, just show the form */ break;
+                    case 'verification-logs': loadLogsData(); break;
+                    case 'upload': resetUploadForms(); break;
+                }
+                sidebar.classList.add('-translate-x-full');
+                sidebarOverlay.classList.add('hidden');
+            };
+
+            const apiFetch = async (endpoint, options = {}) => {
+                const token = localStorage.getItem('accessToken');
+                const headers = { 'Authorization': `Bearer ${token}`, ...options.headers };
+
+                if (!(options.body instanceof FormData)) {
+                    headers['Content-Type'] = 'application/json';
+                }
+
+                const response = await fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers });
+                const data = await response.json().catch(() => ({ msg: 'Invalid JSON response from server.' }));
+
+                if (!response.ok) {
+                    throw new Error(data.msg || `Request failed with status ${response.status}`);
+                }
+                return data;
+            };
+
+            const loadDashboardData = async () => {
+                try {
+                    const [stats, chartData, alerts] = await Promise.all([
+                        apiFetch('/admin/stats'),
+                        apiFetch('/admin/verification-chart-data'),
+                        apiFetch('/admin/alerts')
+                    ]);
+                    renderStatsCards(stats);
+                    renderVerificationChart(chartData);
+                    renderAlertsTable(alerts);
+                } catch (error) {
+                    showToast(`Failed to load dashboard: ${error.message}`, true);
+                }
+            };
+
+            const renderStatsCards = (stats) => {
+                const container = document.getElementById('stats-cards-container');
+                const statItems = [
+                    { title: 'Total Verifications', value: stats.total_verifications, icon: 'shield-check', color: 'text-blue-500' },
+                    { title: 'Certificates in Registry', value: stats.certificates_in_registry, icon: 'database', color: 'text-indigo-500' },
+                    { title: 'Likely Forgeries', value: stats.likely_forgeries, icon: 'shield-alert', color: 'text-red-500' },
+                    { title: 'Unread Alerts', value: stats.unread_alerts, icon: 'bell', color: 'text-yellow-500' },
+                ];
+                container.innerHTML = statItems.map(item => `
+                    <div class="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-slate-500 dark:text-slate-400">${item.title}</p>
+                            <p class="text-3xl font-bold text-slate-800 dark:text-white mt-1">${(item.value || 0).toLocaleString()}</p>
+                        </div>
+                        <div class="p-3 rounded-full bg-slate-100 dark:bg-slate-700">
+                           <i data-lucide="${item.icon}" class="h-6 w-6 ${item.color}"></i>
+                        </div>
+                    </div>
+                `).join('');
+                lucide.createIcons();
+            };
+
+            const renderVerificationChart = (data) => {
+                const ctx = document.getElementById('verificationChart').getContext('2d');
+                if (verificationChartInstance) verificationChartInstance.destroy();
+                verificationChartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.labels,
+                        datasets: [
+                            { label: 'Verified', data: data.verified, backgroundColor: 'rgba(79, 70, 229, 0.7)', borderColor: 'rgba(79, 70, 229, 1)', borderWidth: 1 },
+                            { label: 'Flagged', data: data.flagged, backgroundColor: 'rgba(220, 38, 38, 0.7)', borderColor: 'rgba(220, 38, 38, 1)', borderWidth: 1 }
+                        ]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true }, x: {} } }
+                });
+                updateChartTheme();
+            };
+
+            const updateChartTheme = () => {
+                if (!verificationChartInstance) return;
+                const isDarkMode = document.documentElement.classList.contains('dark');
+                const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+                const textColor = isDarkMode ? '#e2e8f0' : '#334155';
+                const chartOptions = verificationChartInstance.options;
+                chartOptions.scales.y.grid.color = gridColor;
+                chartOptions.scales.y.ticks.color = textColor;
+                chartOptions.scales.x.grid.color = 'transparent';
+                chartOptions.scales.x.ticks.color = textColor;
+                chartOptions.plugins.legend.labels.color = textColor;
+                verificationChartInstance.update();
+            }
+
+            const renderAlertsTable = (alerts) => {
+                const container = document.getElementById('alerts-table-container');
+                container.innerHTML = alerts.length ? alerts.map(alert => `
+                    <div class="flex items-start space-x-4">
+                        <div class="p-2 bg-red-100 dark:bg-red-900/50 rounded-full shrink-0"><i data-lucide="shield-alert" class="h-5 w-5 text-red-500"></i></div>
+                        <div>
+                           <p class="text-sm font-semibold">${alert.message}</p>
+                           <p class="text-xs text-slate-500 dark:text-slate-400">${new Date(alert.timestamp).toLocaleString()}</p>
+                        </div>
+                    </div>`).join('') : `<p class="text-sm text-slate-500">No new alerts.</p>`;
+                lucide.createIcons();
+            };
+
+            const loadCertificatesData = async () => {
+                const loader = document.getElementById('certificates-loader');
+                loader.style.display = 'block';
+                try {
+                    allCertificates = await apiFetch('/admin/certificates');
+                    renderCertificatesTable(allCertificates);
+                } catch (error) {
+                    showToast(`Failed to load certificates: ${error.message}`, true);
+                    document.getElementById('certificates-table-body').innerHTML = `<tr><td colspan="5" class="text-center py-8 text-red-500">Failed to load data.</td></tr>`;
+                } finally {
+                    loader.style.display = 'none';
+                }
+            };
+
+            const renderCertificatesTable = (certificates) => {
+                const tableBody = document.getElementById('certificates-table-body');
+                if (!certificates.length) {
+                    tableBody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-slate-500">No certificates found.</td></tr>`;
+                    return;
+                }
+                const statusBadges = { Verified: 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300', Revoked: 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300', Pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300' };
+                tableBody.innerHTML = certificates.map(cert => `
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-slate-500 dark:text-slate-400">${cert.id}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-white">${cert.name}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">${cert.institution}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusBadges[cert.status] || 'bg-gray-100 text-gray-800'}">${cert.status}</span></td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">${new Date(cert.issued_date).toLocaleDateString()}</td>
+                    </tr>`).join('');
+            };
+
+            const loadLogsData = async () => {
+                const loader = document.getElementById('logs-loader');
+                loader.style.display = 'block';
+                try {
+                    allLogs = await apiFetch('/admin/verification-logs');
+                    renderLogsTable(allLogs);
+                } catch (error) {
+                    showToast(`Failed to load logs: ${error.message}`, true);
+                    document.getElementById('logs-table-body').innerHTML = `<tr><td colspan="5" class="text-center py-8 text-red-500">Failed to load data.</td></tr>`;
+                } finally {
+                    loader.style.display = 'none';
+                }
+            };
+
+            const renderLogsTable = (logs) => {
+                const tableBody = document.getElementById('logs-table-body');
+                if (!logs.length) {
+                    tableBody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-slate-500">No logs found.</td></tr>`; // Changed colspan to 6
+                    return;
+                }
+                const resultBadges = {
+                    'Verified': 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300',
+                    'Flagged': 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300',
+                    'Manual Check Required': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300'
+                    // Add other results as needed
+                };
+                tableBody.innerHTML = logs.map(log => `
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">${log.timestamp}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-white">${log.verifier}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400 truncate" title="${log.filename || ''}">${log.filename || 'N/A'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${resultBadges[log.result] || 'bg-gray-100 text-gray-800'}">${log.result}</span></td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">${log.source || 'N/A'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-700 dark:text-slate-300">${log.trust_score !== null ? log.trust_score : 'N/A'}</td>
+                    </tr>`).join('');
+            };
+
+            const handleAddCertificateSubmit = async (event) => {
+                event.preventDefault();
+                const form = event.target, fileInput = document.getElementById('add-cert-file-upload'), errorEl = document.getElementById('add-certificate-error'), button = form.querySelector('button[type="submit"]'), originalButtonText = button.innerHTML;
+                if (fileInput.files.length === 0) { errorEl.textContent = 'Please select a file.'; return; }
+                errorEl.textContent = ''; button.disabled = true; button.innerHTML = `<div class="flex items-center justify-center"><svg class="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span>Processing...</span></div>`;
+                const formData = new FormData(); formData.append('file', fileInput.files[0]);
+                try {
+                    const response = await apiFetch('/admin/certificate/add', { method: 'POST', body: formData });
+                    showToast(response.msg);
+                    form.reset(); document.getElementById('add-cert-filename').textContent = '';
+                } catch (error) { errorEl.textContent = error.message; } finally { button.disabled = false; button.innerHTML = originalButtonText; }
+            };
+
+            const handleBulkCsvSubmit = async (event) => {
+                event.preventDefault();
+                const form = event.target, fileInput = document.getElementById('bulk-csv-file-upload'), errorEl = document.getElementById('bulk-csv-error'), button = form.querySelector('button[type="submit"]'), originalButtonText = button.innerHTML;
+                if (fileInput.files.length === 0) { errorEl.textContent = 'Please select a CSV file.'; return; }
+                errorEl.textContent = ''; button.disabled = true; button.innerHTML = `<div class="flex items-center justify-center"><svg class="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span>Processing CSV...</span></div>`;
+                const formData = new FormData(); formData.append('file', fileInput.files[0]);
+                try {
+                    const data = await apiFetch('/admin/certificate/bulk-add-csv', { method: 'POST', body: formData });
+                    const tableBody = document.getElementById('bulk-upload-results-body');
+                    const statusColors = { 'Success': 'text-green-600', 'Error': 'text-red-600', 'Skipped': 'text-yellow-600' };
+                    tableBody.innerHTML = data.results.map(result => `<tr><td class="px-6 py-4 text-sm">${result.row}</td><td class="px-6 py-4 text-sm font-mono">${result.cert_id || 'N/A'}</td><td class="px-6 py-4 text-sm font-semibold ${statusColors[result.status] || ''}">${result.status}</td><td class="px-6 py-4 text-sm">${result.message}</td></tr>`).join('');
+                    document.getElementById('bulk-upload-results-container').classList.remove('hidden');
+                } catch (error) { errorEl.textContent = error.message; } finally { button.disabled = false; button.innerHTML = originalButtonText; }
+            };
+
+            const resetUploadForms = () => {
+                document.getElementById('add-certificate-form').reset();
+                document.getElementById('add-cert-filename').textContent = '';
+                document.getElementById('add-certificate-error').textContent = '';
+                document.getElementById('bulk-csv-form').reset();
+                document.getElementById('bulk-csv-filename').textContent = '';
+                document.getElementById('bulk-csv-error').textContent = '';
+                document.getElementById('bulk-upload-results-container').classList.add('hidden');
+            };
+
+            const handleCreateUserSubmit = async (event) => {
+                event.preventDefault();
+                const form = event.target, errorEl = document.getElementById('create-user-error'), button = form.querySelector('button[type="submit"]'), originalButtonText = button.innerHTML;
+                errorEl.textContent = ''; button.disabled = true; button.innerHTML = `<div class="flex items-center justify-center"><svg class="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span>Creating...</span></div>`;
+                const userData = { username: document.getElementById('new-username').value, email: document.getElementById('new-email').value, password: document.getElementById('new-password').value, role: document.getElementById('new-user-role').value };
+                try {
+                    const response = await apiFetch('/admin/create-user', { method: 'POST', body: JSON.stringify(userData) });
+                    showToast(response.msg);
+                    form.reset();
+                    switchView('certificate-management'); // Switch to a different view after success
+                } catch (error) { errorEl.textContent = error.message; } finally { button.disabled = false; button.innerHTML = originalButtonText; }
+            };
+
+            const setupEventListeners = () => {
+                document.getElementById('theme-toggle-desktop').addEventListener('click', handleThemeToggle);
+                document.getElementById('theme-toggle-mobile').addEventListener('click', handleThemeToggle);
+                hamburgerBtn.addEventListener('click', () => { sidebar.classList.remove('-translate-x-full'); sidebarOverlay.classList.remove('hidden'); });
+                sidebarOverlay.addEventListener('click', () => { sidebar.classList.add('-translate-x-full'); sidebarOverlay.classList.add('hidden'); });
+                navLinks.forEach(link => link.addEventListener('click', (e) => { e.preventDefault(); switchView(link.dataset.view); }));
+                document.getElementById('logout-btn').addEventListener('click', () => { localStorage.removeItem('accessToken'); window.location.href = 'index.html'; });
+                document.getElementById('cert-search-input').addEventListener('input', (e) => renderCertificatesTable(allCertificates.filter(c => c.name.toLowerCase().includes(e.target.value.toLowerCase()) || c.id.toLowerCase().includes(e.target.value.toLowerCase()))));
+                document.getElementById('logs-search-input').addEventListener('input', (e) => renderLogsTable(allLogs.filter(l => Object.values(l).some(v => String(v).toLowerCase().includes(e.target.value.toLowerCase())))));
+                document.getElementById('add-certificate-form').addEventListener('submit', handleAddCertificateSubmit);
+                document.getElementById('bulk-csv-form').addEventListener('submit', handleBulkCsvSubmit);
+
+                const addCertFileInput = document.getElementById('add-cert-file-upload');
+                addCertFileInput.addEventListener('change', () => {
+                    document.getElementById('add-cert-filename').textContent = addCertFileInput.files.length > 0 ? addCertFileInput.files[0].name : '';
+                });
+
+                const bulkCsvFileInput = document.getElementById('bulk-csv-file-upload');
+                bulkCsvFileInput.addEventListener('change', () => {
+                    document.getElementById('bulk-csv-filename').textContent = bulkCsvFileInput.files.length > 0 ? bulkCsvFileInput.files[0].name : '';
+                });
+
+                // Tab switching logic for the new Upload page
+                document.querySelectorAll('#upload-view .upload-tab-button').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const tab = button.dataset.tab;
+                        document.querySelectorAll('#upload-view .upload-tab-content').forEach(content => {
+                            content.classList.toggle('hidden', content.id !== `${tab}-content`);
+                        });
+                        document.querySelectorAll('#upload-view .upload-tab-button').forEach(btn => {
+                            btn.classList.remove('border-indigo-500', 'text-indigo-600');
+                            btn.classList.add('border-transparent', 'text-gray-500');
+                        });
+                        button.classList.add('border-indigo-500', 'text-indigo-600');
+                        button.classList.remove('border-transparent', 'text-gray-500');
+                    });
+                });
+                document.getElementById('create-user-form').addEventListener('submit', handleCreateUserSubmit);
+            };
+
+            const init = async () => {
+                lucide.createIcons();
+                initTheme();
+                await checkAuth();
+                setupEventListeners();
+                switchView('dashboard');
+            };
+
+            init();
+        });
+    </script>
+</body>
+
+</html>
