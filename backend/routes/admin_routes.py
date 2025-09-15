@@ -4,7 +4,7 @@ import random
 import traceback
 from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from backend.routes.verify import _process_single_file, allowed_file
 
 # Assuming your models and auth helpers are in these locations
@@ -150,9 +150,11 @@ def bulk_add_csv():
             if Certificate.query.filter_by(cert_id=cert_id).first():
                 results.append({"row": i + 2, "cert_id": cert_id, "status": "Skipped", "message": "Certificate ID already exists."})
                 continue
-
+            # Get the ID of the logged-in user (institution) from the JWT token
+            current_institution_id = get_jwt_identity()
             # If the row is valid, create a new Certificate record and add it
             new_cert = Certificate(
+                institution_id=current_institution_id, # <-- THE FIX: Link each certificate to the institution
                 cert_id=cert_id,
                 name=name,
                 roll=row.get('roll'),
@@ -212,7 +214,11 @@ def add_certificate():
             return jsonify(msg=f"A certificate with the ID '{cert_id}' already exists."), 409
 
         # Create the New Certificate Record from the extracted data
+       
+        current_institution_id = get_jwt_identity()
+        # Create the New Certificate Record from the extracted data
         new_certificate = Certificate(
+            institution_id=current_institution_id, # <-- THE FIX: Link to the current institution
             cert_id=cert_id,
             name=extracted_data.get('name', 'Unknown'),
             roll=extracted_data.get('roll_no'),
