@@ -59,6 +59,7 @@ class VerificationResult(str, enum.Enum):
     DOCUMENT_REVOKED = "Document Revoked"  # <-- ADD THIS LINE
     NOT_A_CERTIFICATE = "Unsupported Document Type"
     NOT_FOUND_IN_REGISTRY = "Not Found in External Registry"
+    UPLOADED_TO_REGISTRY = "Uploaded to Registry"
     ERROR = "System Error"
 
 class VerificationLog(db.Model):

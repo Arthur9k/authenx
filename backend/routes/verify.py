@@ -27,7 +27,7 @@ ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'csv'}
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def _process_single_file(file_storage, user_id=None, local_timestamp=None):
+def _process_single_file(file_storage, user_id=None, local_timestamp=None, create_log=True):
     upload_folder = os.path.join(current_app.instance_path, 'uploads')
     os.makedirs(upload_folder, exist_ok=True)
     
@@ -145,37 +145,37 @@ def _process_single_file(file_storage, user_id=None, local_timestamp=None):
                 final_response.update({"status": result.value, "details": reasons, "trust_score": score, "certificate_data": structured_data})
 
         ### END: UPDATED OCR & CLASSIFICATION LOGIC ###
-
+        if create_log:
         # Your existing logging logic
-        if not is_guest:
-        # Only create a detailed log if the user is REGISTERED (not a guest)
-            log_entry = VerificationLog(
-                user_id=user_id,
-                result=VerificationResult(final_response.get('status')), # Use the Enum object
-                reasons=final_response.get('details', ''),
-                verifier_ip_address=request.remote_addr,
-                filename=original_filename,
-                file_hash=final_response.get('file_hash'),
-                trust_score=final_response.get('trust_score'),
-                source=source,
-                timestamp_local=local_timestamp
-            )
-            db.session.add(log_entry)
-        else:
-        # For GUESTS, we only save the hash and result to speed up future checks
-        # This keeps your original functionality.
-            # For GUESTS, we must make sure the result is JSON-serializable.
-            result_cache = final_response.copy() # Make a copy to avoid changing the original
-            
-            # Check if our special date object exists in the data
-            if "certificate_data" in result_cache and "parsed_issue_date" in result_cache["certificate_data"]:
-                # If it exists, convert it to a simple string (YYYY-MM-DD format)
-                result_cache["certificate_data"]["parsed_issue_date"] = result_cache["certificate_data"]["parsed_issue_date"].isoformat()
-            
-            guest_log = GuestVerification(file_hash=file_hash, result_cache=result_cache)
-            db.session.add(guest_log)
+            if not is_guest:
+            # Only create a detailed log if the user is REGISTERED (not a guest)
+                log_entry = VerificationLog(
+                    user_id=user_id,
+                    result=VerificationResult(final_response.get('status')), # Use the Enum object
+                    reasons=final_response.get('details', ''),
+                    verifier_ip_address=request.remote_addr,
+                    filename=original_filename,
+                    file_hash=final_response.get('file_hash'),
+                    trust_score=final_response.get('trust_score'),
+                    source=source,
+                    timestamp_local=local_timestamp
+                )
+                db.session.add(log_entry)
+            else:
+            # For GUESTS, we only save the hash and result to speed up future checks
+            # This keeps your original functionality.
+                # For GUESTS, we must make sure the result is JSON-serializable.
+                result_cache = final_response.copy() # Make a copy to avoid changing the original
+                
+                # Check if our special date object exists in the data
+                if "certificate_data" in result_cache and "parsed_issue_date" in result_cache["certificate_data"]:
+                    # If it exists, convert it to a simple string (YYYY-MM-DD format)
+                    result_cache["certificate_data"]["parsed_issue_date"] = result_cache["certificate_data"]["parsed_issue_date"].isoformat()
+                
+                guest_log = GuestVerification(file_hash=file_hash, result_cache=result_cache)
+                db.session.add(guest_log)
 
-        db.session.commit()
+            db.session.commit()
         
     except Exception as e:
         current_app.logger.error(f"Error processing {original_filename}: {e}")

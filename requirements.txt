@@ -15,3 +15,4 @@ qrcode[pil]>=7.0
 pyzbar>=0.1.9
 Faker>=19.0.0
 Flask-JWT-Extended>=4.0.0
+dateutil

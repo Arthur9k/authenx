@@ -758,23 +758,23 @@
             };
 
             const renderCertificatesTable = (certificates) => {
-    const tableBody = document.getElementById('certificates-table-body');
-    if (!certificates.length) {
-        tableBody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-slate-500">No certificates found.</td></tr>`;
-        return;
-    }
-    const statusBadges = { Verified: 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300', Revoked: 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300', Pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300' };
-    
-    tableBody.innerHTML = certificates.map(cert => {
-        // --- KEY CHANGE IS HERE ---
-        // 1. First, check if cert.issued_date exists.
-        // 2. If it exists, format it. If not, use "N/A".
-        const formattedDate = cert.issued_date 
-            ? new Date(cert.issued_date).toLocaleDateString() 
-            : 'N/A';
-        // --- END OF KEY CHANGE ---
+                const tableBody = document.getElementById('certificates-table-body');
+                if (!certificates.length) {
+                    tableBody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-slate-500">No certificates found.</td></tr>`;
+                    return;
+                }
+                const statusBadges = { Verified: 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300', Revoked: 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300', Pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300' };
 
-        return `
+                tableBody.innerHTML = certificates.map(cert => {
+                    // --- KEY CHANGE IS HERE ---
+                    // 1. First, check if cert.issued_date exists.
+                    // 2. If it exists, format it. If not, use "N/A".
+                    const formattedDate = cert.issued_date
+                        ? new Date(cert.issued_date).toLocaleDateString()
+                        : 'N/A';
+                    // --- END OF KEY CHANGE ---
+
+                    return `
             <tr>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-slate-500 dark:text-slate-400">${cert.id}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-white">${cert.name}</td>
@@ -782,8 +782,8 @@
                 <td class="px-6 py-4 whitespace-nowrap text-sm"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusBadges[cert.status] || 'bg-gray-100 text-gray-800'}">${cert.status}</span></td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">${formattedDate}</td>
             </tr>`;
-    }).join('');
-};
+                }).join('');
+            };
             const loadLogsData = async () => {
                 const loader = document.getElementById('logs-loader');
                 loader.style.display = 'block';
@@ -826,7 +826,28 @@
                 const form = event.target, fileInput = document.getElementById('add-cert-file-upload'), errorEl = document.getElementById('add-certificate-error'), button = form.querySelector('button[type="submit"]'), originalButtonText = button.innerHTML;
                 if (fileInput.files.length === 0) { errorEl.textContent = 'Please select a file.'; return; }
                 errorEl.textContent = ''; button.disabled = true; button.innerHTML = `<div class="flex items-center justify-center"><svg class="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span>Processing...</span></div>`;
-                const formData = new FormData(); formData.append('file', fileInput.files[0]);
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+
+                // Get the user's local time and add it to the form data
+                // AFTER (The new, perfectly formatted timestamp logic)
+                const now = new Date();
+                const day = String(now.getDate()).padStart(2, '0');
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const year = now.getFullYear();
+
+                // Manually build the time for consistency
+                let hours = now.getHours();
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+                const ampm = hours >= 12 ? 'PM' : 'AM';
+                hours = hours % 12;
+                hours = hours ? hours : 12; // the hour '0' should be '12'
+                const formattedHours = String(hours).padStart(2, '0');
+
+                const time = `${formattedHours}:${minutes}:${seconds} ${ampm}`;
+                const localTimestamp = `${day}/${month}/${year}, ${time}`;
+                formData.append('localTimestamp', localTimestamp);
                 try {
                     const response = await apiFetch('/admin/certificate/add', { method: 'POST', body: formData });
                     showToast(response.msg);
@@ -839,7 +860,28 @@
                 const form = event.target, fileInput = document.getElementById('bulk-csv-file-upload'), errorEl = document.getElementById('bulk-csv-error'), button = form.querySelector('button[type="submit"]'), originalButtonText = button.innerHTML;
                 if (fileInput.files.length === 0) { errorEl.textContent = 'Please select a CSV file.'; return; }
                 errorEl.textContent = ''; button.disabled = true; button.innerHTML = `<div class="flex items-center justify-center"><svg class="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span>Processing CSV...</span></div>`;
-                const formData = new FormData(); formData.append('file', fileInput.files[0]);
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+
+                // Get the user's local time and add it to the form data
+                // AFTER (The new, perfectly formatted timestamp logic)
+                const now = new Date();
+                const day = String(now.getDate()).padStart(2, '0');
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const year = now.getFullYear();
+
+                // Manually build the time for consistency
+                let hours = now.getHours();
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+                const ampm = hours >= 12 ? 'PM' : 'AM';
+                hours = hours % 12;
+                hours = hours ? hours : 12; // the hour '0' should be '12'
+                const formattedHours = String(hours).padStart(2, '0');
+
+                const time = `${formattedHours}:${minutes}:${seconds} ${ampm}`;
+                const localTimestamp = `${day}/${month}/${year}, ${time}`;
+                formData.append('localTimestamp', localTimestamp);
                 try {
                     const data = await apiFetch('/admin/certificate/bulk-add-csv', { method: 'POST', body: formData });
                     const tableBody = document.getElementById('bulk-upload-results-body');

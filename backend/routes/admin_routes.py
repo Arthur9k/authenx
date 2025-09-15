@@ -9,7 +9,7 @@ from backend.routes.verify import _process_single_file, allowed_file
 from dateutil import parser
 
 # Assuming your models and auth helpers are in these locations
-from backend.models import db, Alert, User, Role, Certificate, VerificationLog, Institution, CertificateStatus
+from backend.models import db, Alert, User, Role, Certificate, VerificationLog, Institution, CertificateStatus,VerificationResult
 from backend.routes.auth import roles_required
 
 admin_bp = Blueprint("admin", __name__)
@@ -160,7 +160,7 @@ def bulk_add_csv():
     # 3. SAFETY CHECK: If the uploader is not linked to an institution, stop.
     if not user_institution:
         return jsonify(msg="Your user account is not associated with a specific institution. Cannot add certificates."), 403
-    
+    local_timestamp = request.form.get('localTimestamp')
     # --- KEY CHANGES END HERE ---
 
     results = []
@@ -208,8 +208,21 @@ def bulk_add_csv():
             )
             db.session.add(new_cert)
             results.append({"row": i + 2, "cert_id": cert_id, "status": "Success", "message": "Added to registry."})
-
+            # Now, create a log entry for this successful administrative action
+            admin_log_entry = VerificationLog(
+                user_id=current_user_id,
+                certificate_id=new_cert.id, # We will link this after committing
+                result=VerificationResult.UPLOADED_TO_REGISTRY,
+                reasons=f"Record for '{name}' added via bulk CSV upload.",
+                verifier_ip_address=request.remote_addr,
+                filename=file.filename, # Log the name of the CSV file
+                trust_score=None,
+                source="Admin Bulk Upload",
+                timestamp_local=local_timestamp # Use the timestamp we got earlier
+            )
+            db.session.add(admin_log_entry)
         # Commit all the new certificates to the database at once
+        db.session.flush() 
         db.session.commit()
 
     except Exception as e:
@@ -256,7 +269,8 @@ def add_certificate():
         # --- The rest of the logic proceeds, but now we know the correct institution ---
 
         # We pass the user's ID to the processing function for potential future use (though it's not used now)
-        verification_result = _process_single_file(file, user_id=current_user_id, local_timestamp=None)
+        local_timestamp = request.form.get('localTimestamp')
+        verification_result = _process_single_file(file, user_id=current_user_id, local_timestamp=local_timestamp, create_log=False)
         
         file_hash = verification_result.get('file_hash')
         if not file_hash:
@@ -292,6 +306,22 @@ def add_certificate():
         
         db.session.add(new_certificate)
         db.session.commit()
+        # --- ADD THIS ENTIRE NEW BLOCK ---
+        # Now, create our own, more accurate log entry for the upload action
+        admin_log_entry = VerificationLog(
+            user_id=current_user_id,
+            certificate_id=new_certificate.id, # Link the log to the new certificate
+            result=VerificationResult.UPLOADED_TO_REGISTRY, # Use our new "Uploaded" status
+            reasons=f"Admin user '{User.query.get(current_user_id).username}' added this record to the registry.",
+            verifier_ip_address=request.remote_addr,
+            filename=file.filename,
+            file_hash=file_hash,
+            trust_score=None, # Set score to None, which will show as N/A
+            source="Admin Upload", # Set a clear source for the action
+            timestamp_local=local_timestamp
+        )
+        db.session.add(admin_log_entry)
+        db.session.commit() # Commit the new log entry
 
         return jsonify(msg=f"Certificate '{cert_id}' for '{new_certificate.name}' was successfully added to '{user_institution.name}'."), 201
 
