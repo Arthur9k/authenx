@@ -26,42 +26,58 @@ def roles_required(*roles):
 
 @auth_bp.route("/signup", methods=["POST", "OPTIONS"])
 def signup():
-    """Handles new user registration."""
+    """Handles new user registration and links them to an institution."""
     if request.method == "OPTIONS":
         return jsonify(message="CORS preflight successful"), 200
         
     data = request.get_json()
-    pin = data.get("pin")
     
-    if not pin or pin != current_app.config.get('SIGNUP_PIN'):
-        return jsonify(msg="Invalid security PIN provided."), 403
-
+    # --- KEY CHANGE: Get the new institution_name field ---
     username = data.get("username")
     email = data.get("email")
     password = data.get("password")
+    pin = data.get("pin")
+    institution_name = data.get("institution_name", "").strip() # Get the institution name from the form
 
-    if not username or not email or not password:
-        return jsonify(msg="Username, email, and password are required."), 400
+    if not pin or pin != current_app.config.get('SIGNUP_PIN'):
+        return jsonify(msg="Invalid security PIN provided."), 403
 
-    if User.query.filter_by(username=username).first() or User.query.filter_by(email=email).first():
+    # We also check that an institution name was provided
+    if not all([username, email, password, institution_name]):
+        return jsonify(msg="Username, email, password, and institution name are required."), 400
+
+    if User.query.filter((User.username == username) | (User.email == email)).first():
         return jsonify(msg="Username or email already exists."), 409
 
-    ## --- KEY CHANGE HERE --- ##
-    # We now look for the 'Admin' role instead of 'Verifier'.
+    # --- KEY CHANGE: Find or Create the Institution ---
+    # Look in the database to see if this institution already exists
+    institution = Institution.query.filter_by(name=institution_name).first()
+    if not institution:
+        # If it's a new institution, create a record for it
+        institution = Institution(name=institution_name)
+        db.session.add(institution)
+        # We use flush to prepare the new institution for the database without fully saving.
+        db.session.flush() 
+
     admin_role = Role.query.filter_by(name='Admin').first()
-    # If the 'Admin' role doesn't exist in the database, we create it.
     if not admin_role:
         admin_role = Role(name='Admin')
         db.session.add(admin_role)
-    ## --- END OF KEY CHANGE --- ##
 
+    # Create the user (this part is the same as before)
     new_user = User(username=username, email=email, roles=[admin_role])
     new_user.set_password(password)
     db.session.add(new_user)
+    
+    # This commit saves the new user and institution, giving the user a unique ID
     db.session.commit()
 
-    return jsonify(msg="Admin user created successfully. Please log in."), 201
+    # --- KEY CHANGE: Link the user to the institution after creation ---
+    # Now that the user has an ID, we update the institution's record with that ID.
+    institution.admin_user_id = new_user.id
+    db.session.commit()
 
+    return jsonify(msg="Admin user created successfully for " + institution_name + ". Please log in."), 201
 
 @auth_bp.route("/login", methods=["POST", "OPTIONS"])
 def login():

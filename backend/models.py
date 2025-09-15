@@ -41,7 +41,15 @@ class Certificate(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     verification_logs = db.relationship("VerificationLog", backref="certificate", lazy=True)
-    def to_dict(self): return { "cert_id": self.cert_id, "name": self.name, "course": self.course, "status": self.status.value,"file_hash": self.file_hash}
+    def to_dict(self):
+        return {
+        "id": self.cert_id,  # KEY FIX: Changed "cert_id" to "id" to match the frontend table
+        "name": self.name,
+        "institution": self.institution.name if self.institution else "N/A", # KEY FIX: Added the institution's name
+        "status": self.status.value,
+        "issued_date": self.issued_date.isoformat() if self.issued_date else None, # KEY FIX: Added the formatted issue date
+        "file_hash": self.file_hash # Included for our next step
+     }
 
 # CHANGE: Replaced old statuses with new, more descriptive and user-friendly labels.
 class VerificationResult(str, enum.Enum):

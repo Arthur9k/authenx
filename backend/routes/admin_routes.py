@@ -8,7 +8,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from backend.routes.verify import _process_single_file, allowed_file
 
 # Assuming your models and auth helpers are in these locations
-from backend.models import db, Alert, User, Role, Certificate, VerificationLog, CertificateStatus
+from backend.models import db, Alert, User, Role, Certificate, VerificationLog, Institution, CertificateStatus
 from backend.routes.auth import roles_required
 
 admin_bp = Blueprint("admin", __name__)
@@ -88,34 +88,51 @@ def get_verification_logs():
 @jwt_required()
 @roles_required("Admin")
 def create_user():
-    """Allows an admin to manually create a new user (e.g., for an institution)."""
+    """Allows an admin to manually create a new user and link them to an institution."""
     data = request.get_json()
+    
+    # --- KEY CHANGE: Get the new institution_name field ---
     username = data.get("username")
     email = data.get("email")
     password = data.get("password")
-    role_name = data.get("role", "Institution") # Default to 'Institution' role
+    role_name = data.get("role", "Institution")
+    institution_name = data.get("institution_name", "").strip() # Get the institution name from the form
 
-    if not all([username, email, password]):
-        return jsonify({"msg": "Missing username, email, or password"}), 400
+    # We also check that an institution name was provided
+    if not all([username, email, password, institution_name]):
+        return jsonify({"msg": "Username, email, password, and institution name are required"}), 400
 
     if User.query.filter((User.username == username) | (User.email == email)).first():
         return jsonify({"msg": "Username or email already exists"}), 409
 
+    # --- KEY CHANGE: Find or Create the Institution (Same logic as signup) ---
+    # Look in the database to see if this institution already exists
+    institution = Institution.query.filter_by(name=institution_name).first()
+    if not institution:
+        # If it's a new institution, create a record for it
+        institution = Institution(name=institution_name)
+        db.session.add(institution)
+        db.session.flush() # Use flush to prepare the institution for linking
+
     role = Role.query.filter_by(name=role_name).first()
     if not role:
-        # If the role doesn't exist, create it. This makes the system more robust.
         role = Role(name=role_name)
         db.session.add(role)
-        db.session.flush() # Use flush to get the ID before committing fully
 
-    # CORRECTED: Use the User model's set_password method for consistency
+    # Create the user (this part is the same as before)
     new_user = User(username=username, email=email, roles=[role])
     new_user.set_password(password)
-    
     db.session.add(new_user)
+    
+    # This commit saves the new user and institution, giving the user a unique ID
+    db.session.commit()
+
+    # --- KEY CHANGE: Link the user to the institution after creation ---
+    # Now that the user has an ID, we update the institution's record with that ID.
+    institution.admin_user_id = new_user.id
     db.session.commit()
     
-    return jsonify({"msg": f"User '{username}' created successfully with role '{role_name}'."}), 201
+    return jsonify({"msg": f"User '{username}' created for '{institution_name}'."}), 201
 
 
 # NEW - Route for Bulk CSV Upload to Database
@@ -129,6 +146,21 @@ def bulk_add_csv():
     file = request.files['file']
     if file.filename == '' or not file.filename.endswith('.csv'):
         return jsonify(msg="Please select a valid CSV file"), 400
+
+    # --- KEY CHANGES START HERE ---
+
+    # 1. Get the uploader's user ID from their login token.
+    from flask_jwt_extended import get_jwt_identity
+    current_user_id = get_jwt_identity()
+
+    # 2. Find their institution ONCE before the loop starts (this is more efficient).
+    user_institution = Institution.query.filter_by(admin_user_id=current_user_id).first()
+
+    # 3. SAFETY CHECK: If the uploader is not linked to an institution, stop.
+    if not user_institution:
+        return jsonify(msg="Your user account is not associated with a specific institution. Cannot add certificates."), 403
+    
+    # --- KEY CHANGES END HERE ---
 
     results = []
     try:
@@ -150,11 +182,10 @@ def bulk_add_csv():
             if Certificate.query.filter_by(cert_id=cert_id).first():
                 results.append({"row": i + 2, "cert_id": cert_id, "status": "Skipped", "message": "Certificate ID already exists."})
                 continue
-            # Get the ID of the logged-in user (institution) from the JWT token
-            current_institution_id = get_jwt_identity()
-            # If the row is valid, create a new Certificate record and add it
+
+            # 4. Inside the loop, use the correct institution ID for every new certificate.
             new_cert = Certificate(
-                institution_id=current_institution_id, # <-- THE FIX: Link each certificate to the institution
+                institution_id=user_institution.id, # This is the crucial fix
                 cert_id=cert_id,
                 name=name,
                 roll=row.get('roll'),
@@ -175,50 +206,64 @@ def bulk_add_csv():
     return jsonify({"results": results})
 
 # NEW - Route for Single Certificate Upload (PDF/JPG)
+# In backend/routes/admin_routes.py
+
+# Replace your old add_certificate function with this one.
 @admin_bp.route("/certificate/add", methods=["POST"])
 @jwt_required()
-@roles_required("Admin")
+@roles_required("Admin", "Institution") # Allow both Admin and Institution roles
 def add_certificate():
     """
-    Accepts a single certificate file, processes it, and adds its
-    metadata to the main Certificate registry.
+    Accepts a single certificate file, processes it, links it to the UPLOADER'S
+    institution, and adds its metadata to the main Certificate registry.
     """
     if 'file' not in request.files:
         return jsonify(msg="No file part in the request"), 400
-
+    
     file = request.files['file']
 
     if file.filename == '' or not allowed_file(file.filename):
         return jsonify(msg="No file selected or file type not allowed"), 400
 
     try:
-        # Re-use your powerful processing function from verify.py
-        verification_result = _process_single_file(file, user_id=None, local_timestamp=None)
+        # --- THIS IS THE CORRECT LOGIC FOR LINKING THE INSTITUTION ---
 
+        # 1. Get the ID of the user who is currently logged in from their token.
+        from flask_jwt_extended import get_jwt_identity
+        current_user_id = get_jwt_identity()
+
+        # 2. Find the institution that this user is registered to manage.
+        # This assumes a link exists where an Institution has an `admin_user_id`.
+        user_institution = Institution.query.filter_by(admin_user_id=current_user_id).first()
+
+        # 3. SAFETY CHECK: If the logged-in user is not linked to any institution, deny the request.
+        if not user_institution:
+            return jsonify(msg="Your user account is not associated with a specific institution. Cannot add certificate."), 403
+
+        # --- The rest of the logic proceeds, but now we know the correct institution ---
+
+        # We pass the user's ID to the processing function for potential future use (though it's not used now)
+        verification_result = _process_single_file(file, user_id=current_user_id, local_timestamp=None)
+        
         file_hash = verification_result.get('file_hash')
         if not file_hash:
             return jsonify(msg="Could not generate a hash for the file."), 500
 
-        # Validation: Check if this exact file already exists
         if Certificate.query.filter_by(file_hash=file_hash).first():
             return jsonify(msg="This exact certificate file already exists in the registry."), 409
-
+        
         extracted_data = verification_result.get('certificate_data', {})
         cert_id = extracted_data.get('cert_id') or extracted_data.get('roll_no')
-
+        
         if not cert_id:
              return jsonify(msg="Could not extract a Certificate ID from the document."), 400
 
-        # Validation: Check if a record with this ID already exists
         if Certificate.query.filter_by(cert_id=cert_id).first():
             return jsonify(msg=f"A certificate with the ID '{cert_id}' already exists."), 409
 
-        # Create the New Certificate Record from the extracted data
-       
-        current_institution_id = get_jwt_identity()
-        # Create the New Certificate Record from the extracted data
+        # 4. Create the new certificate, now using the UPLOADER'S institution ID.
         new_certificate = Certificate(
-            institution_id=current_institution_id, # <-- THE FIX: Link to the current institution
+            institution_id=user_institution.id, # This is the crucial fix
             cert_id=cert_id,
             name=extracted_data.get('name', 'Unknown'),
             roll=extracted_data.get('roll_no'),
@@ -226,12 +271,13 @@ def add_certificate():
             status=CertificateStatus.VALID,
             file_hash=file_hash
         )
-
+        
         db.session.add(new_certificate)
         db.session.commit()
 
-        return jsonify(msg=f"Certificate '{cert_id}' for '{new_certificate.name}' was successfully added."), 201
+        return jsonify(msg=f"Certificate '{cert_id}' for '{new_certificate.name}' was successfully added to '{user_institution.name}'."), 201
 
     except Exception as e:
+        import traceback
         traceback.print_exc()
         return jsonify(msg=f"An unexpected error occurred: {str(e)}"), 500
