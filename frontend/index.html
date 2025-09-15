@@ -281,6 +281,7 @@
                 modal.classList.remove('hidden');
                 modal.classList.add('flex');
                 setTimeout(() => modal.querySelector('.modal-content').classList.add('entering'), 10);
+                htmlEl.classList.add('overflow-hidden');
             };
             const closeModal = (modal) => {
                 modal.querySelector('.modal-content').classList.remove('entering');

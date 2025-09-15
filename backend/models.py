@@ -48,7 +48,7 @@ class Certificate(db.Model):
         "institution": self.institution.name if self.institution else "N/A", # KEY FIX: Added the institution's name
         "status": self.status.value,
         "issued_date": self.issued_date.isoformat() if self.issued_date else None, # KEY FIX: Added the formatted issue date
-        "file_hash": self.file_hash # Included for our next step
+        "file_hash": self.file_hash # Included for our next step,
      }
 
 # CHANGE: Replaced old statuses with new, more descriptive and user-friendly labels.

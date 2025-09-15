@@ -80,7 +80,7 @@ def _process_single_file(file_storage, user_id=None, local_timestamp=None, creat
             
             certificate_in_db = Certificate.query.filter_by(file_hash=file_hash).first()
             if certificate_in_db:
-                reasons = "Document perfectly matches a record in our registry."
+                reasons = "Document perfectly matches a record in our database."
                 if certificate_in_db.status == CertificateStatus.REVOKED:
                     reasons = "This certificate is on record but has been officially REVOKED by the issuing institution."
                     result = VerificationResult.DOCUMENT_REVOKED

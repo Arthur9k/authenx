@@ -329,3 +329,55 @@ def add_certificate():
         import traceback
         traceback.print_exc()
         return jsonify(msg=f"An unexpected error occurred: {str(e)}"), 500
+    # In backend/routes/admin_routes.py
+
+# ADD THIS ENTIRE NEW FUNCTION TO THE END OF THE FILE
+@admin_bp.route("/certificates/delete", methods=["POST"])
+@jwt_required()
+@roles_required("Admin")
+def delete_certificates():
+    """Accepts a list of certificate IDs and deletes them from the database."""
+    data = request.get_json()
+    cert_ids_to_delete = data.get('ids', [])
+
+    if not cert_ids_to_delete:
+        return jsonify(msg="No certificate IDs provided."), 400
+
+    # This query finds all certificates whose 'cert_id' is in the list we received.
+    certificates = Certificate.query.filter(Certificate.cert_id.in_(cert_ids_to_delete)).all()
+    
+    deleted_count = 0
+    for cert in certificates:
+        db.session.delete(cert)
+        deleted_count += 1
+        
+    db.session.commit()
+    
+    return jsonify(msg=f"Successfully deleted {deleted_count} certificate(s).")
+
+# In backend/routes/admin_routes.py
+
+# ADD THIS SECOND NEW FUNCTION TO THE END OF THE FILE
+@admin_bp.route("/certificates/revoke", methods=["POST"])
+@jwt_required()
+@roles_required("Admin", "Institution")
+def revoke_certificates():
+    """Accepts a list of certificate IDs and updates their status to 'REVOKED'."""
+    data = request.get_json()
+    cert_ids_to_revoke = data.get('ids', [])
+
+    if not cert_ids_to_revoke:
+        return jsonify(msg="No certificate IDs provided."), 400
+
+    # This query finds all certificates to be updated.
+    # The `with_for_update()` is a safety measure to prevent conflicts if multiple admins act at once.
+    certificates = db.session.query(Certificate).filter(Certificate.cert_id.in_(cert_ids_to_revoke)).with_for_update().all()
+    
+    revoked_count = 0
+    for cert in certificates:
+        cert.status = CertificateStatus.REVOKED
+        revoked_count += 1
+        
+    db.session.commit()
+    
+    return jsonify(msg=f"Successfully revoked {revoked_count} certificate(s).")
