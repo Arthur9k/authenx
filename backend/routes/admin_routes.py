@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from backend.routes.verify import _process_single_file, allowed_file
+from dateutil import parser
 
 # Assuming your models and auth helpers are in these locations
 from backend.models import db, Alert, User, Role, Certificate, VerificationLog, Institution, CertificateStatus
@@ -184,14 +185,26 @@ def bulk_add_csv():
                 continue
 
             # 4. Inside the loop, use the correct institution ID for every new certificate.
+            # First, look for an 'issued_date' column in the CSV row and parse it
+            parsed_date = None
+            date_string = row.get('issued_date')
+            if date_string:
+                try:
+                    # Use our date tool to understand the date text
+                    parsed_date = parser.parse(date_string).date()
+                except (parser.ParserError, TypeError):
+                    pass # If the date is invalid, we safely ignore it
+
+            # Now, create the new certificate, including the date
             new_cert = Certificate(
-                institution_id=user_institution.id, # This is the crucial fix
+                institution_id=user_institution.id, # This uses the correct institution ID
                 cert_id=cert_id,
                 name=name,
                 roll=row.get('roll'),
                 course=row.get('course'),
                 file_hash=row.get('file_hash'),
-                status=CertificateStatus.VALID 
+                status=CertificateStatus.VALID,
+                issued_date=parsed_date # <-- This is the crucial new line for the date
             )
             db.session.add(new_cert)
             results.append({"row": i + 2, "cert_id": cert_id, "status": "Success", "message": "Added to registry."})
@@ -262,14 +275,19 @@ def add_certificate():
             return jsonify(msg=f"A certificate with the ID '{cert_id}' already exists."), 409
 
         # 4. Create the new certificate, now using the UPLOADER'S institution ID.
+        # First, get the correctly parsed date that verify.py prepared for us
+        parsed_date = extracted_data.get("parsed_issue_date")
+
+        # Now, create the new certificate record, including the date
         new_certificate = Certificate(
-            institution_id=user_institution.id, # This is the crucial fix
+            institution_id=user_institution.id, # This uses the correct institution ID
             cert_id=cert_id,
             name=extracted_data.get('name', 'Unknown'),
             roll=extracted_data.get('roll_no'),
             course=extracted_data.get('course'),
             status=CertificateStatus.VALID,
-            file_hash=file_hash
+            file_hash=file_hash,
+            issued_date=parsed_date # <-- This is the crucial new line for the date
         )
         
         db.session.add(new_certificate)

@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
-from backend.models import db, User, Role, TokenBlocklist
+from backend.models import db, User, Role, TokenBlocklist, Institution
 from datetime import datetime, timezone
 from functools import wraps
 

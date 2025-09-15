@@ -758,22 +758,32 @@
             };
 
             const renderCertificatesTable = (certificates) => {
-                const tableBody = document.getElementById('certificates-table-body');
-                if (!certificates.length) {
-                    tableBody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-slate-500">No certificates found.</td></tr>`;
-                    return;
-                }
-                const statusBadges = { Verified: 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300', Revoked: 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300', Pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300' };
-                tableBody.innerHTML = certificates.map(cert => `
-                    <tr>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-slate-500 dark:text-slate-400">${cert.id}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-white">${cert.name}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">${cert.institution}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusBadges[cert.status] || 'bg-gray-100 text-gray-800'}">${cert.status}</span></td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">${new Date(cert.issued_date).toLocaleDateString()}</td>
-                    </tr>`).join('');
-            };
+    const tableBody = document.getElementById('certificates-table-body');
+    if (!certificates.length) {
+        tableBody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-slate-500">No certificates found.</td></tr>`;
+        return;
+    }
+    const statusBadges = { Verified: 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300', Revoked: 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300', Pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300' };
+    
+    tableBody.innerHTML = certificates.map(cert => {
+        // --- KEY CHANGE IS HERE ---
+        // 1. First, check if cert.issued_date exists.
+        // 2. If it exists, format it. If not, use "N/A".
+        const formattedDate = cert.issued_date 
+            ? new Date(cert.issued_date).toLocaleDateString() 
+            : 'N/A';
+        // --- END OF KEY CHANGE ---
 
+        return `
+            <tr>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-slate-500 dark:text-slate-400">${cert.id}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-white">${cert.name}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">${cert.institution}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusBadges[cert.status] || 'bg-gray-100 text-gray-800'}">${cert.status}</span></td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">${formattedDate}</td>
+            </tr>`;
+    }).join('');
+};
             const loadLogsData = async () => {
                 const loader = document.getElementById('logs-loader');
                 loader.style.display = 'block';

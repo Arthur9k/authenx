@@ -99,14 +99,16 @@ class AdvancedOcrExtractor:
         'result': ['result', 'cgpa', 'sgpa', 'percentage', 'division'],
         'semester': ['semester', 'sem', 'Semester I','semester II'],
         'sgpa': ['sgpa', 'semester grade point average'],
-        'dob': ['Date of Birth', 'DOB', 'जन्म तिथि']
+        'dob': ['Date of Birth', 'DOB', 'जन्म तिथि'],
+        'issue_date': ['date of issue','declared on', 'result declared on','date of declaration' 'दिनांक']
     }
 
     REGEX_PATTERNS = {
         'session': re.compile(r'(\d{4}\s*-\s*\d{2,4})'),
         'cgpa': re.compile(r'(?:cumulative grade point average|cgpa)\s*[:\-–—]?\s*(\d\.\d{1,2})', re.I),
         'percentage': re.compile(r'(\d{2,3}(?:\.\d{1,2})?%)'),
-        'dob': re.compile(r'.*?(\d{2}[/-]\d{2}[/-]\d{2,4})') # A robust DOB regex
+        'dob': re.compile(r'.*?(\d{2}[/-]\d{2}[/-]\d{2,4})'), # A robust DOB regex
+        'issue_date': re.compile(r'(\d{1,2}[\s./-](?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*[\s./-]\d{2,4}|\d{1,2}[./-]\d{1,2}[./-]\d{2,4})', re.IGNORECASE)
     }
 
     ### KEPT: Your original working functions ###
@@ -115,30 +117,49 @@ class AdvancedOcrExtractor:
         cleaned = re.sub(r'^[^\w\d]+', '', value).strip()
         return cleaned
 
+    # In backend/services/ocr_service.py
+
+# Replace the entire old _extract_by_keyword function with this one.
+    # In backend/services/ocr_service.py
+
+# Replace the entire old _extract_by_keyword function with this one.
     def _extract_by_keyword(self, field_name: str, text: str) -> Optional[str]:
         keywords = self.FIELD_KEYWORDS.get(field_name, [])
         keywords.sort(key=len, reverse=True)
         lines = text.split('\n')
+        
         for i, line in enumerate(lines):
             found_keyword = None
-        # Find which keyword from our list is on this line
             for keyword in keywords:
                 if re.search(r'\b' + re.escape(keyword) + r'\b', line, re.IGNORECASE):
                     found_keyword = keyword
-                    break # Stop once we find a keyword on the line
+                    break
 
             if found_keyword:
-            # New Logic: Split the line by the keyword and take the last part.
-            # This precisely isolates the value from the garbled Hindi text.
+                # --- THIS IS THE NEW, SMARTER LOGIC ---
+                
+                # 1. If this is a date field, we use a more robust method.
+                if field_name in ['issue_date', 'dob']:
+                    date_pattern = self.REGEX_PATTERNS.get(field_name)
+                    # We search the ENTIRE LINE for something that looks like a date.
+                    if date_pattern:
+                        match = date_pattern.search(line)
+                        if match:
+                            # If we find a clean date pattern, we return ONLY that part.
+                            # This ignores extra words like "declared on" and messy times.
+                            return match.group(1).strip()
+                
+                # 2. For all other fields, we use the reliable split method.
                 parts = re.split(r'\b' + re.escape(found_keyword) + r'\b', line, maxsplit=1, flags=re.IGNORECASE)
-                if len(parts) > 1 and parts[1].strip():
-                    return self._clean_value(parts[1])
+                value_part = parts[1] if len(parts) > 1 else ""
 
-            # Your original fallback logic to check the next line remains useful
-                if i + 1 < len(lines):
+                if value_part.strip():
+                    return self._clean_value(value_part)
+                elif i + 1 < len(lines):
                     next_line_text = lines[i+1].strip()
                     if next_line_text and not any(kw in next_line_text.lower() for kw in sum(self.FIELD_KEYWORDS.values(), [])):
                         return self._clean_value(next_line_text)
+
         return None
     def _extract_all_names(self) -> Dict[str, Optional[str]]:
         names = {'name': None, 'father_name': None, 'mother_name': None}
@@ -187,12 +208,27 @@ class AdvancedOcrExtractor:
                 results['university'] = None
         results['roll_no'] = self._extract_by_keyword('roll_no', self.raw_text)
         
+            # 1. First, get the potentially messy date string using our existing method.
+        messy_date_string = self._extract_by_keyword('issue_date', self.raw_text)
+        
+        # 2. Now, the "Cleanup Crew" steps in with the "white-out".
+        if messy_date_string:
+            # This regex finds any part that looks like a time (e.g., HH:MM, HH:MM PM) and removes it.
+            time_pattern = re.compile(r'\s*\d{1,2}:\d{2}(:\d{2})?\s*(AM|PM)?', re.IGNORECASE)
+            clean_date = time_pattern.sub('', messy_date_string).strip()
+            
+            # We store the cleaned-up date string.
+            results['issue_date'] = clean_date
+                
+        # --- END OF NEW DATE LOGIC ---
         # Robust DOB check: use keyword method first, then fallback to regex search
         results['dob'] = self._extract_by_keyword('dob', self.raw_text)
         if not results.get('dob'):
             dob_match = re.search(self.REGEX_PATTERNS['dob'], self.raw_text)
             if dob_match:
                 results['dob'] = dob_match.group(1)
+
+
         #results['subjects'] = self._extract_subjects_and_marks()
         # Keep the rest of your original extraction logic
         results['enrolment_no'] = self._extract_by_keyword('enrolment_no', self.raw_text)

@@ -9,6 +9,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from werkzeug.utils import secure_filename
 import requests
 import traceback 
+from dateutil import parser
 
 # Your existing service imports
 from backend.services import (
@@ -20,9 +21,6 @@ from backend.services import (
     qr_service
 )
 from backend.models import db, Certificate, VerificationLog, CertificateStatus, VerificationResult, GuestVerification, User, Alert
-
-# Renamed blueprint to avoid conflicts if you use 'verify' as a variable name
-verify_bp = Blueprint("verify_routes", __name__)
 
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'csv'}
 
@@ -41,6 +39,7 @@ def _process_single_file(file_storage, user_id=None, local_timestamp=None):
 
     is_guest = user_id is None
     final_response = {}
+    source = "Unknown"
 
     try:
         file_hash = hash_service.sha256_of_file(filepath)
@@ -87,9 +86,8 @@ def _process_single_file(file_storage, user_id=None, local_timestamp=None):
                     result = VerificationResult.DOCUMENT_REVOKED
                 else:
                     result = VerificationResult.VERIFIED_VIA_REGISTRY
+                source = "Database Registry"
                 final_response.update({"status": result.value, "details": reasons, "trust_score": 100, "certificate_data": certificate_in_db.to_dict()})
-                # No need to return here, let the final log handle it
-                return final_response
 
             elif cert_id:
                 api_key = current_app.config['MOCK_API_KEY']
@@ -105,8 +103,8 @@ def _process_single_file(file_storage, user_id=None, local_timestamp=None):
                             result = VerificationResult.VERIFIED_VIA_REGISTRY
                             reasons = f"Verified via external registry (DigiLocker) for Cert ID: {cert_id}."
                                 # Use the nested data for the response
+                            source = "DigiLocker"
                             final_response.update({"status": result.value, "details": reasons, "trust_score": 100, "certificate_data": certificate_data_from_api})
-                            return final_response
                         else:
                             result = VerificationResult.LIKELY_FORGED
                             reasons = f"CRITICAL: Data for Cert ID {cert_id} found in external registry, but the document file has been altered."
@@ -122,6 +120,8 @@ def _process_single_file(file_storage, user_id=None, local_timestamp=None):
             # If no conclusive result yet, run forgery analysis
             if 'status' not in final_response:
                 # Use the high-quality 'full_text' from the deep scan for forgery analysis
+                source = "Forgery Analysis" # <-- ADD THIS LINE to track the source
+    # Use the high-quality 'full_text' from the deep scan for forgery analysis
                 score, forgery_reasons = forgery_service.calculate_trust_score(image, full_text, page_count)
                 if score >= forgery_service.HIGH_CONFIDENCE_THRESHOLD:
                     result = VerificationResult.MANUAL_CHECK_REQUIRED
@@ -129,6 +129,19 @@ def _process_single_file(file_storage, user_id=None, local_timestamp=None):
                 else:
                     result = VerificationResult.LIKELY_FORGED
                     reasons = "Not in any registry and failed forgery checks.\n" + forgery_reasons
+
+                # --- ADD THIS NEW DATE LOGIC ---
+                date_string = structured_data.get("issue_date")
+                if date_string:
+                    try:
+                        # 1. The code parses the date here...
+                        parsed_date = parser.parse(date_string).date()
+                        # 2. ...and now it correctly ADDS THE RESULT back to the main data dictionary.
+                        structured_data["parsed_issue_date"] = parsed_date
+                    except (parser.ParserError, TypeError):
+                        current_app.logger.warning(f"Could not parse date string: {date_string}")
+            # --- END OF NEW DATE LOGIC ---
+
                 final_response.update({"status": result.value, "details": reasons, "trust_score": score, "certificate_data": structured_data})
 
         ### END: UPDATED OCR & CLASSIFICATION LOGIC ###
@@ -144,14 +157,22 @@ def _process_single_file(file_storage, user_id=None, local_timestamp=None):
                 filename=original_filename,
                 file_hash=final_response.get('file_hash'),
                 trust_score=final_response.get('trust_score'),
-                source="Forgery Analysis", # We'll improve this in the future
+                source=source,
                 timestamp_local=local_timestamp
             )
             db.session.add(log_entry)
         else:
         # For GUESTS, we only save the hash and result to speed up future checks
         # This keeps your original functionality.
-            guest_log = GuestVerification(file_hash=file_hash, result_cache=final_response)
+            # For GUESTS, we must make sure the result is JSON-serializable.
+            result_cache = final_response.copy() # Make a copy to avoid changing the original
+            
+            # Check if our special date object exists in the data
+            if "certificate_data" in result_cache and "parsed_issue_date" in result_cache["certificate_data"]:
+                # If it exists, convert it to a simple string (YYYY-MM-DD format)
+                result_cache["certificate_data"]["parsed_issue_date"] = result_cache["certificate_data"]["parsed_issue_date"].isoformat()
+            
+            guest_log = GuestVerification(file_hash=file_hash, result_cache=result_cache)
             db.session.add(guest_log)
 
         db.session.commit()
