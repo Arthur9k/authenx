@@ -69,11 +69,60 @@
             overflow-y: auto;
         }
 
-        * {
-            transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
-            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-            transition-duration: 300ms;
+        /* START: Add these new styles */
+
+        /* For the rotating sun/moon icon */
+        .theme-toggle-button {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
+
+        .theme-toggle-button .theme-icon {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+            position: absolute;
+        }
+
+        .theme-icon-dark {
+            transform: rotate(-90deg) scale(0.5);
+            opacity: 0;
+        }
+
+        .dark .theme-icon-light {
+            transform: rotate(90deg) scale(0.5);
+            opacity: 0;
+        }
+
+        .dark .theme-icon-dark {
+            transform: rotate(0deg) scale(1);
+            opacity: 1;
+        }
+
+        /* For the circular reveal View Transition */
+        @keyframes reveal-in {
+            from {
+                clip-path: circle(0% at var(--x) var(--y));
+            }
+
+            to {
+                clip-path: circle(150% at var(--x) var(--y));
+            }
+        }
+
+        ::view-transition-new(root) {
+            animation: reveal-in 200ms ease-out;
+            /* Using the 700ms duration you liked */
+            animation-name: reveal-in;
+            mix-blend-mode: normal;
+        }
+
+        ::view-transition-old(root) {
+            animation: none;
+            mix-blend-mode: normal;
+        }
+
+        /* END: Add these new styles */
     </style>
 </head>
 
@@ -92,13 +141,14 @@
             </div>
             <div class="flex items-center space-x-4">
                 <button id="theme-toggle"
-                    class="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">
-                    <svg id="theme-icon-light" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    class="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 theme-toggle-button">
+                    <svg class="h-6 w-6 theme-icon theme-icon-light" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z">
                         </path>
                     </svg>
-                    <svg id="theme-icon-dark" class="h-6 w-6 hidden" fill="none" viewBox="0 0 24 24"
+                    <svg class="h-6 w-6 theme-icon theme-icon-dark" fill="none" viewBox="0 0 24 24"
                         stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z">
@@ -205,13 +255,27 @@
             // --- THEME & MODAL LOGIC ---
             const applyTheme = (theme) => {
                 htmlEl.classList.toggle('dark', theme === 'dark');
-                document.getElementById('theme-icon-light').classList.toggle('hidden', theme === 'dark');
-                document.getElementById('theme-icon-dark').classList.toggle('hidden', theme !== 'dark');
             };
-            themeToggle.addEventListener('click', () => {
+            themeToggle.addEventListener('click', (event) => {
                 const newTheme = htmlEl.classList.contains('dark') ? 'light' : 'dark';
                 localStorage.setItem('theme', newTheme);
-                applyTheme(newTheme);
+
+                if (!document.startViewTransition) {
+                    applyTheme(newTheme);
+                    return;
+                }
+
+                const x = event.clientX;
+                const y = event.clientY;
+
+                const transition = document.startViewTransition(() => {
+                    applyTheme(newTheme);
+                });
+
+                transition.ready.then(() => {
+                    document.documentElement.style.setProperty('--x', x + 'px');
+                    document.documentElement.style.setProperty('--y', y + 'px');
+                });
             });
             const openModal = (modal) => {
                 modal.classList.remove('hidden');

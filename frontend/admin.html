@@ -23,10 +23,22 @@
             font-family: 'Inter', sans-serif;
         }
 
-        * {
-            transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, transform;
-            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-            transition-duration: 300ms;
+        /* Smooth transitions for the main layout and components */
+        body,
+        header,
+        aside,
+        main,
+        section,
+        div,
+        button,
+        input,
+        select,
+        table,
+        a,
+        p,
+        h1,
+        h3 {
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
         }
 
         ::-webkit-scrollbar {
@@ -67,6 +79,75 @@
             background: linear-gradient(to right, #a78bfa, #f472b6);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+        }
+
+        .theme-toggle-button {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .theme-toggle-button .theme-icon {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+            position: absolute;
+            /* Layer icons on top of each other */
+        }
+
+        /* Light mode styles (sun is visible, moon is rotated away) */
+        .theme-icon-dark {
+            transform: rotate(-90deg) scale(0.5);
+            opacity: 0;
+        }
+
+        /* Dark mode styles (moon is visible, sun is rotated away) */
+        .dark .theme-icon-light {
+            transform: rotate(90deg) scale(0.5);
+            opacity: 0;
+        }
+
+        .dark .theme-icon-dark {
+            transform: rotate(0deg) scale(1);
+            opacity: 1;
+        }
+
+        /* START: Add these styles for the View Transition */
+
+        /* Define the keyframes for our circular reveal */
+        @keyframes reveal-in {
+            from {
+                clip-path: circle(0% at var(--x) var(--y));
+            }
+
+            to {
+                clip-path: circle(150% at var(--x) var(--y));
+            }
+        }
+
+        /* Apply the animation to the new view */
+        ::view-transition-new(root) {
+            animation: reveal-in 200ms cubic-bezier(0.4, 0, 0.2, 1);
+            /* Tell the browser to ONLY animate the clip-path */
+            animation-name: reveal-in;
+            /* The old view will simply disappear underneath, no extra animation needed. */
+            mix-blend-mode: normal;
+        }
+
+        ::view-transition-old(root) {
+            animation: none;
+            /* Hide the old view instantly to prevent any flicker */
+            mix-blend-mode: normal;
+        }
+
+        ::view-transition-old(root) {
+            animation: none;
+            /* The old view doesn't need its own animation */
+        }
+
+        /* END: View Transition styles */
+        /* Add this new class to your CSS */
+        .transition-contain {
+            content-visibility: hidden;
         }
     </style>
 </head>
@@ -128,9 +209,9 @@
                     <i data-lucide="menu" class="h-6 w-6"></i>
                 </button>
                 <h1 id="mobile-header-title" class="text-lg font-semibold">Dashboard</h1>
-                <button id="theme-toggle-mobile" class="p-2 rounded-full">
-                    <i data-lucide="sun" class="h-6 w-6 theme-icon-light"></i>
-                    <i data-lucide="moon" class="h-6 w-6 theme-icon-dark hidden"></i>
+                <button id="theme-toggle-mobile" class="p-2 rounded-full theme-toggle-button">
+                    <i data-lucide="sun" class="h-6 w-6 theme-icon theme-icon-light"></i>
+                    <i data-lucide="moon" class="h-6 w-6 theme-icon theme-icon-dark"></i>
                 </button>
             </header>
 
@@ -140,9 +221,9 @@
                         <h1 id="desktop-header-title" class="text-3xl font-bold text-slate-900 dark:text-white">
                             Dashboard</h1>
                         <button id="theme-toggle-desktop"
-                            class="hidden md:block p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800">
-                            <i data-lucide="sun" class="h-6 w-6 theme-icon-light"></i>
-                            <i data-lucide="moon" class="h-6 w-6 theme-icon-dark hidden"></i>
+                            class="hidden md:flex p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 theme-toggle-button">
+                            <i data-lucide="sun" class="h-6 w-6 theme-icon theme-icon-light"></i>
+                            <i data-lucide="moon" class="h-6 w-6 theme-icon theme-icon-dark"></i>
                         </button>
                     </div>
 
@@ -480,16 +561,46 @@
 
             const applyTheme = (theme) => {
                 document.documentElement.classList.toggle('dark', theme === 'dark');
-                document.querySelectorAll('.theme-icon-light').forEach(el => el.classList.toggle('hidden', theme === 'dark'));
-                document.querySelectorAll('.theme-icon-dark').forEach(el => el.classList.toggle('hidden', theme !== 'dark'));
                 localStorage.setItem('theme', theme);
                 if (verificationChartInstance) {
                     updateChartTheme();
                 }
             };
 
-            const handleThemeToggle = () => {
-                applyTheme(document.documentElement.classList.contains('dark') ? 'light' : 'dark');
+            const handleThemeToggle = (event) => {
+                if (!document.startViewTransition) {
+                    applyTheme(document.documentElement.classList.contains('dark') ? 'light' : 'dark');
+                    return;
+                }
+
+                const x = event.clientX;
+                const y = event.clientY;
+
+                // --- OPTIMIZATION START ---
+                // Find the main content area to hide during the transition
+                const mainContent = document.querySelector('main');
+                // --- OPTIMIZATION END ---
+
+                const transition = document.startViewTransition(() => {
+                    // --- OPTIMIZATION START ---
+                    // Add the class to hide the content just before the DOM updates
+                    if (mainContent) mainContent.classList.add('transition-contain');
+                    // --- OPTIMIZATION END ---
+
+                    applyTheme(document.documentElement.classList.contains('dark') ? 'light' : 'dark');
+                });
+
+                transition.ready.then(() => {
+                    document.documentElement.style.setProperty('--x', x + 'px');
+                    document.documentElement.style.setProperty('--y', y + 'px');
+                });
+
+                transition.finished.then(() => {
+                    // --- OPTIMIZATION START ---
+                    // Remove the class once the animation is completely finished
+                    if (mainContent) mainContent.classList.remove('transition-contain');
+                    // --- OPTIMIZATION END ---
+                });
             };
 
             const checkAuth = async () => {
@@ -745,8 +856,8 @@
             };
 
             const setupEventListeners = () => {
-                document.getElementById('theme-toggle-desktop').addEventListener('click', handleThemeToggle);
-                document.getElementById('theme-toggle-mobile').addEventListener('click', handleThemeToggle);
+                document.getElementById('theme-toggle-desktop').addEventListener('click', (event) => handleThemeToggle(event));
+                document.getElementById('theme-toggle-mobile').addEventListener('click', (event) => handleThemeToggle(event));
                 hamburgerBtn.addEventListener('click', () => { sidebar.classList.remove('-translate-x-full'); sidebarOverlay.classList.remove('hidden'); });
                 sidebarOverlay.addEventListener('click', () => { sidebar.classList.add('-translate-x-full'); sidebarOverlay.classList.add('hidden'); });
                 navLinks.forEach(link => link.addEventListener('click', (e) => { e.preventDefault(); switchView(link.dataset.view); }));
