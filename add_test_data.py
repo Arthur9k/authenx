@@ -20,7 +20,7 @@ certificates_to_add = [
         "cert_id": "23226443",
         "name": "MOHD NASAR",
         "roll": "23226443",
-        "file_hash": "hash_for_nasar"
+        "file_hash": "ef8ec5edf42315cc4dacc52c533b4d8c5c318fa98ea17aa3f5f8c9ae501a7181"
     },
     # To add another certificate, just copy the block above and paste it here
     # {

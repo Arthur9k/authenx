@@ -27,6 +27,29 @@ ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'csv'}
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def _compare_ocr_with_registry_data(ocr_data, registry_data):
+    """
+    Compares key fields from OCR with data from a registry.
+    Returns True if the data is consistent.
+    """
+    if not ocr_data or not registry_data:
+        return False
+
+    # Normalize and compare key fields. We use .lower() and .strip() to handle
+    # minor differences in case or whitespace from OCR.
+    ocr_name = ocr_data.get('name', '').lower().strip()
+    registry_name = registry_data.get('name', '').lower().strip()
+
+    ocr_roll = ocr_data.get('roll_no', '').lower().strip()
+    registry_roll = registry_data.get('roll', '').lower().strip()
+    
+    # We consider it a match if the names are very similar and rolls match.
+    # Using 'in' allows for partial name matches (e.g., "MOHD NASAR" vs "MOHD NASAR-")
+    if registry_name in ocr_name and ocr_roll == registry_roll:
+        return True
+        
+    return False
+
 def _process_single_file(file_storage, user_id=None, local_timestamp=None, create_log=True):
     upload_folder = os.path.join(current_app.instance_path, 'uploads')
     os.makedirs(upload_folder, exist_ok=True)
@@ -75,54 +98,92 @@ def _process_single_file(file_storage, user_id=None, local_timestamp=None, creat
             
             # Use roll_no as a fallback for cert_id
             cert_id = structured_data.get("cert_id") or structured_data.get("roll_no")
-            
-            # --- The rest of your existing logic now runs with accurate data ---
-            
-            certificate_in_db = Certificate.query.filter_by(file_hash=file_hash).first()
-            if certificate_in_db:
-                reasons = "Document perfectly matches a record in our database."
-                if certificate_in_db.status == CertificateStatus.REVOKED:
-                    reasons = "This certificate is on record but has been officially REVOKED by the issuing institution."
+            # --- NEW, REFINED VERIFICATION LOGIC ---
+
+
+            # GATE 1: PERFECT MATCH CHECK (Internal Database)
+            certificate_by_hash = Certificate.query.filter_by(file_hash=file_hash).first()
+            if certificate_by_hash:
+                # ... (This gate's logic is perfect, no changes needed)
+                source = "Database Registry (Hash Match)"
+                if certificate_by_hash.status == CertificateStatus.REVOKED:
                     result = VerificationResult.DOCUMENT_REVOKED
+                    reasons = "This certificate is on record but has been officially REVOKED."
                 else:
                     result = VerificationResult.VERIFIED_VIA_REGISTRY
-                source = "Database Registry"
-                final_response.update({"status": result.value, "details": reasons, "trust_score": 100, "certificate_data": certificate_in_db.to_dict()})
+                    reasons = "Document is a perfect match to an official record in the registry."
+                final_response.update({
+                    "status": result.value, "details": reasons, "trust_score": 100, 
+                    "certificate_data": certificate_by_hash.to_dict()
+                })
 
-            elif cert_id:
-                api_key = current_app.config['MOCK_API_KEY']
-                digilocker_url = f"{request.host_url}api/mock/digilocker/v1/certificate/{cert_id}"
+            # GATE 2: EXTERNAL REGISTRY CHECK (Now with Data Reconciliation)
+            if 'status' not in final_response and cert_id:
                 try:
+                    api_key = current_app.config['MOCK_API_KEY']
+                    digilocker_url = f"{request.host_url}api/mock/digilocker/v1/certificate/{cert_id}"
                     response = requests.get(digilocker_url, headers={'X-API-Key': api_key})
+                    
                     if response.status_code == 200:
                         digi_data = response.json()
                         certificate_data_from_api = digi_data.get('data', {})
-                        # Now, get the hash from within that nested dictionary.
-                        hash_from_db = certificate_data_from_api.get('file_hash', '') if certificate_data_from_api else ''
-                        if hash_from_db.strip().lower() == file_hash.strip().lower():
+                        hash_from_digilocker = certificate_data_from_api.get('file_hash', '') if certificate_data_from_api else ''
+                        
+                        # BRANCH A: Perfect hash match in DigiLocker
+                        if hash_from_digilocker.strip().lower() == file_hash.strip().lower():
                             result = VerificationResult.VERIFIED_VIA_REGISTRY
                             reasons = f"Verified via external registry (DigiLocker) for Cert ID: {cert_id}."
-                                # Use the nested data for the response
                             source = "DigiLocker"
                             final_response.update({"status": result.value, "details": reasons, "trust_score": 100, "certificate_data": certificate_data_from_api})
+                        
+                        # BRANCH B: Hash mismatch, so we perform Data Reconciliation
                         else:
-                            result = VerificationResult.LIKELY_FORGED
-                            reasons = f"CRITICAL: Data for Cert ID {cert_id} found in external registry, but the document file has been altered."
-                        final_response.update({
-                            "status": result.value,
-                            "details": reasons,
-                            "trust_score": 10,
-                            "certificate_data": structured_data
-                        })
+                            # Use our new helper function to compare OCR text vs DigiLocker data
+                            if _compare_ocr_with_registry_data(structured_data, certificate_data_from_api):
+                                # Data matches, so it's likely a scan/crop. Issue a warning.
+                                result = VerificationResult.VERIFIED_VIA_REGISTRY
+                                reasons = (f"Data Verified: The text on the document matches the external registry record for '{certificate_data_from_api.get('name')}'.\n"
+                                        f"<b style='color: orange;'>Note:</b> This document is a non-original version (for example, scanned or cropped). While the content looks intact, technical checks show a different hash value due to the change in format.")
+                                source = "DigiLocker (Data Match)"
+                                final_response.update({"status": result.value, "details": reasons, "trust_score": 75, "certificate_data": certificate_data_from_api})
+                            else:
+                                # Data does NOT match. This is a confirmed forgery.
+                                result = VerificationResult.LIKELY_FORGED
+                                reasons = f"CRITICAL: The data on this document does NOT match the official external registry record for Cert ID {cert_id}."
+                                final_response.update({"status": result.value, "details": reasons, "trust_score": 10, "certificate_data": structured_data})
+                            
                 except requests.exceptions.RequestException:
                     current_app.logger.warning("Could not connect to the mock DigiLocker service.")
+
+            # GATE 3: DATA MATCH CHECK (Internal Database)
+            if 'status' not in final_response and cert_id:
+                # ... (This gate's logic is perfect, no changes needed)
+                certificate_by_data = Certificate.query.filter_by(cert_id=cert_id).first()
+                if certificate_by_data:
+                    source = "Database Registry (Data Match)"
+                    score, forgery_reasons = forgery_service.calculate_trust_score(image, full_text, page_count, structured_data)
+                    if certificate_by_data.status == CertificateStatus.REVOKED:
+                        result = VerificationResult.DOCUMENT_REVOKED
+                        reasons = "Data on this document matches a record that has been REVOKED."
+                    elif score < forgery_service.FORGERY_THRESHOLD:
+                        result = VerificationResult.VERIFIED_VIA_REGISTRY
+                        reasons = (f"Data Verified: Matches record for '{certificate_by_data.name}'.\n"
+                                f"**WARNING:** The document's low trust score ({score}) suggests it may have been visually altered. Manual review is advised.\n\n"
+                                f"Reasons for low score:\n{forgery_reasons}")
+                    else:
+                        result = VerificationResult.VERIFIED_VIA_REGISTRY
+                        reasons = "Data on this document matches a valid record, and the document appears authentic."
+                    final_response.update({
+                        "status": result.value, "details": reasons, "trust_score": score, 
+                        "certificate_data": certificate_by_data.to_dict()
+                    })
             
             # If no conclusive result yet, run forgery analysis
             if 'status' not in final_response:
                 # Use the high-quality 'full_text' from the deep scan for forgery analysis
                 source = "Forgery Analysis" # <-- ADD THIS LINE to track the source
     # Use the high-quality 'full_text' from the deep scan for forgery analysis
-                score, forgery_reasons = forgery_service.calculate_trust_score(image, full_text, page_count)
+                score, forgery_reasons = forgery_service.calculate_trust_score(image, full_text, page_count, structured_data)
                 if score >= forgery_service.HIGH_CONFIDENCE_THRESHOLD:
                     result = VerificationResult.MANUAL_CHECK_REQUIRED
                     reasons = "High confidence, but not in any registry. Manual check recommended.\n" + forgery_reasons
