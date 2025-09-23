@@ -26,6 +26,7 @@ class CertificateStatus(enum.Enum): VALID = "valid"; REVOKED = "revoked"; EXPIRE
 class Certificate(db.Model):
     __tablename__ = "certificates"
     id = db.Column(db.Integer, primary_key=True)
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     institution_id = db.Column(db.Integer, db.ForeignKey("institutions.id"), nullable=False)
     cert_id = db.Column(db.String(120), unique=True, nullable=False, index=True)
     name = db.Column(db.String(255), nullable=False)

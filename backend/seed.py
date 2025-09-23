@@ -20,10 +20,11 @@ def sha256_of_file(file_path):
 
 def seed_roles():
     roles = [
-        {'name': 'Admin', 'description': 'Full administrative access to the system.'},
-        {'name': 'Verifier', 'description': 'Can verify certificates (e.g., an employer).'},
-        {'name': 'Institution', 'description': 'Can manage their own institution\'s certificates.'}
-    ]
+    {'name': 'Admin', 'description': 'Full administrative access to the system.'},
+    {'name': 'Verifier', 'description': 'Can verify certificates (e.g., an employer).'},
+    {'name': 'Institution', 'description': 'Can manage their own institution\'s certificates.'},
+    {'name': 'SuperAdmin', 'description': 'Global access to view all logs and certificates.'} # <-- ADD THIS LINE
+]
     for role_data in roles:
         if not Role.query.filter_by(name=role_data['name']).first():
             role = Role(**role_data)
@@ -130,6 +131,43 @@ def seed_roles():
 #         db.session.commit()
 #     print("✅ Mock DigiLocker seeded.")
 
+def seed_super_admin():
+    """Creates a dedicated Super Admin user."""
+    # First, check if the SuperAdmin role we just created exists.
+    super_admin_role = Role.query.filter_by(name='SuperAdmin').first()
+    if not super_admin_role:
+        print("SuperAdmin role not found. Please run seed_roles first.")
+        return
+
+    # Define the Super Admin's details
+    super_admin_email = "faizan@gmail.com"
+
+    # Check if this user already exists before trying to create them
+    if not User.query.filter_by(email=super_admin_email).first():
+
+        # A Super Admin needs to be linked to an institution. 
+        # We'll create a special one just for them.
+        admin_institution_name = "System Administration"
+        admin_institution = Institution.query.filter_by(name=admin_institution_name).first()
+        if not admin_institution:
+            admin_institution = Institution(name=admin_institution_name)
+            db.session.add(admin_institution)
+            db.session.commit() # Save the new institution
+
+        # Create the new user object
+        super_admin_user = User(
+            username='Admin',
+            email=super_admin_email,
+            roles=[super_admin_role] # Assign the SuperAdmin role
+        )
+        super_admin_user.set_password('faizan') # IMPORTANT: Use a secure password in production
+        db.session.add(super_admin_user)
+        db.session.commit() # Save the new user to get their ID
+
+        # Now, link the new user to their special institution
+        admin_institution.admin_user_id = super_admin_user.id
+        db.session.commit()    
+
 @click.command('seed-db')
 @with_appcontext
 def seed_command():
@@ -143,6 +181,7 @@ def seed_command():
     print("Database tables dropped and recreated.")
     
     seed_roles()
+    seed_super_admin()
     # seed_users()
     # seed_institutions()
     # seed_certificates()
@@ -156,6 +195,6 @@ def seed_command():
             cert_id=good_cert.cert_id,
             data_hash=good_cert.data_hash,
             output_dir="backend/static/qr"
-        )
+        )  
 
     print("🎉 Database seeding and asset generation completed successfully! 🎉")

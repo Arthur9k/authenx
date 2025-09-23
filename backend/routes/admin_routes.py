@@ -4,7 +4,7 @@ import random
 import traceback
 from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from backend.routes.verify import _process_single_file, allowed_file
 from dateutil import parser
 
@@ -17,7 +17,7 @@ admin_bp = Blueprint("admin", __name__)
 
 @admin_bp.route("/stats", methods=["GET"])
 @jwt_required()
-@roles_required("Admin")
+@roles_required("Admin", "SuperAdmin")
 def get_stats():
     """Provides key statistics for the admin dashboard cards."""
     # In a real app, these would be efficient database queries.
@@ -32,7 +32,7 @@ def get_stats():
 
 @admin_bp.route("/verification-chart-data", methods=["GET"])
 @jwt_required()
-@roles_required("Admin")
+@roles_required("Admin", "SuperAdmin")
 def get_verification_chart_data():
     """Generates mock data for the verification trends chart."""
     today = datetime.utcnow()
@@ -50,7 +50,7 @@ def get_verification_chart_data():
 
 @admin_bp.route("/alerts", methods=["GET"])
 @jwt_required()
-@roles_required("Admin")
+@roles_required("Admin", "SuperAdmin")
 def get_alerts():
     """Returns the top 5 unread alerts."""
     alerts = Alert.query.filter_by(is_read=False).order_by(Alert.timestamp.desc()).limit(5).all()
@@ -69,25 +69,53 @@ def get_alerts():
 
 @admin_bp.route("/certificates", methods=["GET"])
 @jwt_required()
-@roles_required("Admin", "Institution")
+@roles_required("Admin", "Institution", "SuperAdmin") # Add SuperAdmin to allowed roles
 def get_certificates():
-    """Returns a list of all certificates in the registry."""
-    certificates = Certificate.query.order_by(Certificate.issued_date.desc()).all()
+    """
+    Returns a list of certificates.
+    - SuperAdmins see ALL certificates.
+    - Other users see only their OWN certificates.
+    """
+    claims = get_jwt()
+    user_roles = claims.get("roles", [])
+    current_user_id = get_jwt_identity()
+
+    if "SuperAdmin" in user_roles:
+        # If the user is a SuperAdmin, get ALL certificates from the database.
+        certificates = Certificate.query.order_by(Certificate.created_at.desc()).all()
+    else:
+        # Otherwise, get only the certificates created by the current user.
+        certificates = Certificate.query.filter_by(created_by_user_id=current_user_id).order_by(Certificate.created_at.desc()).all()
+
     return jsonify([cert.to_dict() for cert in certificates])
 
 
 @admin_bp.route("/verification-logs", methods=["GET"])
 @jwt_required()
-@roles_required("Admin")
+@roles_required("Admin", "SuperAdmin") # Add SuperAdmin to allowed roles
 def get_verification_logs():
-    """Returns a list of all verification attempts."""
-    logs = VerificationLog.query.order_by(VerificationLog.timestamp_utc.desc()).limit(50).all() # Limit to last 50 for performance
+    """
+    Returns a list of verification logs.
+    - SuperAdmins see ALL logs.
+    - Other users see only their OWN logs.
+    """
+    claims = get_jwt()
+    user_roles = claims.get("roles", [])
+    current_user_id = get_jwt_identity()
+
+    if "SuperAdmin" in user_roles:
+        # If the user is a SuperAdmin, get ALL logs from the database.
+        logs = VerificationLog.query.order_by(VerificationLog.timestamp_utc.desc()).limit(100).all()
+    else:
+        # Otherwise, get only the logs created by the current user.
+        logs = VerificationLog.query.filter_by(user_id=current_user_id).order_by(VerificationLog.timestamp_utc.desc()).limit(100).all()
+
     return jsonify([log.to_dict() for log in logs])
 
 
 @admin_bp.route("/create-user", methods=["POST"])
 @jwt_required()
-@roles_required("Admin")
+@roles_required("Admin", "SuperAdmin")
 def create_user():
     """Allows an admin to manually create a new user and link them to an institution."""
     data = request.get_json()
@@ -139,7 +167,7 @@ def create_user():
 # NEW - Route for Bulk CSV Upload to Database
 @admin_bp.route("/certificate/bulk-add-csv", methods=["POST"])
 @jwt_required()
-@roles_required("Admin", "Institution")
+@roles_required("Admin", "Institution", "SuperAdmin")
 def bulk_add_csv():
     """Accepts a CSV, processes it, and adds new records to the Certificate registry."""
     if 'file' not in request.files:
@@ -198,6 +226,7 @@ def bulk_add_csv():
             # Now, create the new certificate, including the date
             new_cert = Certificate(
                 institution_id=user_institution.id, # This uses the correct institution ID
+                created_by_user_id=current_user_id,  # Link the certificate to the uploader
                 cert_id=cert_id,
                 name=name,
                 roll=row.get('roll'),
@@ -237,7 +266,7 @@ def bulk_add_csv():
 # Replace your old add_certificate function with this one.
 @admin_bp.route("/certificate/add", methods=["POST"])
 @jwt_required()
-@roles_required("Admin", "Institution") # Allow both Admin and Institution roles
+@roles_required("Admin", "Institution", "SuperAdmin") # Allow Admin, Institution, and SuperAdmin roles
 def add_certificate():
     """
     Accepts a single certificate file, processes it, links it to the UPLOADER'S
@@ -295,6 +324,7 @@ def add_certificate():
         # Now, create the new certificate record, including the date
         new_certificate = Certificate(
             institution_id=user_institution.id, # This uses the correct institution ID
+            created_by_user_id=current_user_id,  # Link the certificate to the uploader
             cert_id=cert_id,
             name=extracted_data.get('name', 'Unknown'),
             roll=extracted_data.get('roll_no'),
@@ -334,7 +364,7 @@ def add_certificate():
 # ADD THIS ENTIRE NEW FUNCTION TO THE END OF THE FILE
 @admin_bp.route("/certificates/delete", methods=["POST"])
 @jwt_required()
-@roles_required("Admin")
+@roles_required("Admin", "SuperAdmin")
 def delete_certificates():
     """Accepts a list of certificate IDs and deletes them from the database."""
     data = request.get_json()
@@ -360,7 +390,7 @@ def delete_certificates():
 # ADD THIS SECOND NEW FUNCTION TO THE END OF THE FILE
 @admin_bp.route("/certificates/revoke", methods=["POST"])
 @jwt_required()
-@roles_required("Admin", "Institution")
+@roles_required("Admin", "Institution", "SuperAdmin")
 def revoke_certificates():
     """Accepts a list of certificate IDs and updates their status to 'REVOKED'."""
     data = request.get_json()

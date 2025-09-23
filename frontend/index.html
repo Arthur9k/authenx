@@ -339,7 +339,7 @@
                             if (text.includes('Verified')) { color = 'text-green-500'; icon = '✅'; }
                             else if (text.includes('Revoked')) { color = 'text-orange-500'; icon = '⚠️'; }
                             else if (text.includes('Forged')) { color = 'text-red-500'; icon = '❌'; }
-                            else if (text.includes('Manual Check')) { color = 'text-yellow-500'; icon = '🤔'; }
+                            else if (text.includes('Manual Check')) { color = 'text-yellow-500'; icon = '⚠️'; }
                             else if (text.includes('Error')) { color = 'text-red-500'; icon = '🔥'; }
                             const trustScoreHTML = helpers.renderTrustScore(result.trust_score);
                             const filenameHTML = result.original_filename ? `<p class="text-xs text-center font-mono text-slate-400 truncate" title="${result.original_filename}">${result.original_filename}</p>` : '';
